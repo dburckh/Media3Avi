@@ -1,0 +1,49 @@
+apply from: '../constants.gradle'
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion project.ext.compileSdkVersion
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        versionName project.ext.releaseVersion
+        versionCode project.ext.releaseVersionCode
+        minSdkVersion project.ext.minSdkVersion
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+
+    def media3_version = rootProject.ext.media3_version
+    implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+
+    // Common functionality used across multiple media libraries
+    implementation "androidx.media3:media3-common:$media3_version"
+
+    // For extracting data from media containers
+    implementation "androidx.media3:media3-extractor:$media3_version"
+
+    // For extracting data from media containers
+    implementation "androidx.media3:media3-exoplayer:$media3_version"
+
+    //testImplementation project(modulePrefix + 'testdata')
+    testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    testImplementation 'junit:junit:' + junitVersion
+    testImplementation 'androidx.test:core:' + androidxTestCoreVersion
+    testImplementation 'androidx.test.ext:junit:' + androidxTestJUnitVersion
+    testImplementation "androidx.media3:media3-test-utils:$media3_version"
+}

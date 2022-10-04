@@ -1,0 +1,134 @@
+// Copyright (C) 2016 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+apply from: '../constants.gradle'
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion project.ext.compileSdkVersion
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        versionName project.ext.releaseVersion
+        versionCode project.ext.releaseVersionCode
+        minSdkVersion project.ext.minSdkVersion
+        targetSdkVersion project.ext.appTargetSdkVersion
+        multiDexEnabled true
+    }
+
+    buildTypes {
+        release {
+            shrinkResources true
+            minifyEnabled true
+            proguardFiles = [
+                "proguard-rules.txt",
+                getDefaultProguardFile('proguard-android.txt')
+            ]
+            signingConfig signingConfigs.debug
+        }
+        debug {
+            jniDebuggable = true
+        }
+    }
+
+    lintOptions {
+        // The demo app isn't indexed, doesn't have translations, and has a
+        // banner for AndroidTV that's only in xhdpi density.
+        disable 'GoogleAppIndexingWarning','MissingTranslation','IconDensities'
+    }
+
+    flavorDimensions "decoderExtensions"
+
+    productFlavors {
+        noDecoderExtensions {
+            dimension "decoderExtensions"
+            buildConfigField "boolean", "USE_DECODER_EXTENSIONS", "false"
+        }
+        withDecoderExtensions {
+            dimension "decoderExtensions"
+            buildConfigField "boolean", "USE_DECODER_EXTENSIONS", "true"
+        }
+    }
+}
+
+dependencies {
+    implementation project(path: ':media3-avi')
+    compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
+    implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
+    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
+    implementation 'com.google.android.material:material:' + androidxMaterialVersion
+
+
+    //def media3_version = "1.0.0-beta02"
+    def media3_version = rootProject.ext.media3_version
+
+    // For media playback using ExoPlayer
+    implementation "androidx.media3:media3-exoplayer:$media3_version"
+
+    // For DASH playback support with ExoPlayer
+    implementation "androidx.media3:media3-exoplayer-dash:$media3_version"
+    // For HLS playback support with ExoPlayer
+    implementation "androidx.media3:media3-exoplayer-hls:$media3_version"
+    // For RTSP playback support with ExoPlayer
+    implementation "androidx.media3:media3-exoplayer-rtsp:$media3_version"
+    // For ad insertion using the Interactive Media Ads SDK with ExoPlayer
+    implementation "androidx.media3:media3-exoplayer-ima:$media3_version"
+
+    // For loading data using the Cronet network stack
+    implementation "androidx.media3:media3-datasource-cronet:$media3_version"
+    // For loading data using the OkHttp network stack
+    implementation "androidx.media3:media3-datasource-okhttp:$media3_version"
+    // For loading data using librtmp
+    implementation "androidx.media3:media3-datasource-rtmp:$media3_version"
+
+    // For building media playback UIs
+    implementation "androidx.media3:media3-ui:$media3_version"
+    // For building media playback UIs for Android TV using the Jetpack Leanback library
+    implementation "androidx.media3:media3-ui-leanback:$media3_version"
+
+    // For exposing and controlling media sessions
+    implementation "androidx.media3:media3-session:$media3_version"
+
+    // For extracting data from media containers
+    implementation "androidx.media3:media3-extractor:$media3_version"
+
+    // For integrating with Cast
+    implementation "androidx.media3:media3-cast:$media3_version"
+
+    // For scheduling background operations using Jetpack Work's WorkManager with ExoPlayer
+    implementation "androidx.media3:media3-exoplayer-workmanager:$media3_version"
+
+    // For transforming media files
+    implementation "androidx.media3:media3-transformer:$media3_version"
+
+    // Utilities for testing media components (including ExoPlayer components)
+    implementation "androidx.media3:media3-test-utils:$media3_version"
+    // Utilities for testing media components (including ExoPlayer components) via Robolectric
+    implementation "androidx.media3:media3-test-utils-robolectric:$media3_version"
+
+    // Common functionality for media database components
+    implementation "androidx.media3:media3-database:$media3_version"
+    // Common functionality for media decoders
+    implementation "androidx.media3:media3-decoder:$media3_version"
+    // Common functionality for loading data
+    implementation "androidx.media3:media3-datasource:$media3_version"
+    // Common functionality used across multiple media libraries
+    implementation "androidx.media3:media3-common:$media3_version"
+}
+
+//apply plugin: 'com.google.android.gms.strict-version-matcher-plugin'
