@@ -12,8 +12,8 @@ import com.homesoft.exo.video.BitmapFactoryVideoRenderer;
 
 import java.util.ArrayList;
 
-public class AviRenderersFactory extends DefaultRenderersFactory {
-    public AviRenderersFactory(Context context) {
+public class MjpegRenderersFactory extends DefaultRenderersFactory {
+    public MjpegRenderersFactory(Context context) {
         super(context);
     }
 

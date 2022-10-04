@@ -33,7 +33,7 @@ import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.offline.DownloadManager;
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper;
 
-import com.homesoft.exo.AviRenderersFactory;
+import com.homesoft.exo.MjpegRenderersFactory;
 
 import java.io.File;
 import java.net.CookieHandler;
@@ -88,7 +88,7 @@ public final class DemoUtil {
     //AVI Change
 //    return new DefaultRenderersFactory(context.getApplicationContext())
 //        .setExtensionRendererMode(extensionRendererMode);
-    return new AviRenderersFactory(context.getApplicationContext())
+    return new MjpegRenderersFactory(context.getApplicationContext())
         .setExtensionRendererMode(extensionRendererMode);
   }
 

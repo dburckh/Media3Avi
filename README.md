@@ -13,6 +13,6 @@ ExoPlayer exoPlayer = new ExoPlayer.Builder(context)
     // Core AVI Support
     .setMediaSourceFactory(new DefaultMediaSourceFactory(context, new AviExtractorsFactory()))
     // Optional MJPEG Support
-    .setRenderersFactory(new AviRenderersFactory(context))
+    .setRenderersFactory(new MjpegRenderersFactory(context))
     .build();
 ```
