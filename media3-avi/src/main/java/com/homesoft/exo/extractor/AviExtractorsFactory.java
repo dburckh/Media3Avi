@@ -35,4 +35,11 @@ public class AviExtractorsFactory implements ExtractorsFactory {
         }
         return extractors;
     }
+
+    /**
+     * Get the underlying DefaultExtractorsFactory
+     */
+    public DefaultExtractorsFactory getDefaultExtractorsFactory() {
+        return defaultExtractorsFactory;
+    }
 }
