@@ -555,6 +555,11 @@ public class AviExtractor implements Extractor {
     return RESULT_CONTINUE;
   }
 
+  private int skipJunk(@NonNull ExtractorInput input, @NonNull PositionHolder seekPosition, int size) {
+    seekPosition.position = alignPosition(input.getPosition() + size);
+    return RESULT_SEEK;
+  }
+
   @Override
   public int read(@NonNull ExtractorInput input, @NonNull PositionHolder seekPosition) throws IOException {
     switch (state) {
@@ -576,6 +581,8 @@ public class AviExtractor implements Extractor {
           final int size = byteBuffer.getInt();
           if (tag == IDX1) {
             readIdx1(input, size);
+          } else if (tag == JUNK) {
+            return skipJunk(input, seekPosition, size);
           }
         } else {
           output.seekMap(new SeekMap.Unseekable(getDuration()));
