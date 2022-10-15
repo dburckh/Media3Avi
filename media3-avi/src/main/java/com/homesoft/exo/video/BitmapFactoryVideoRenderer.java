@@ -157,11 +157,18 @@ public class BitmapFactoryVideoRenderer extends BaseRenderer {
       return;
     }
     //Log.d(TAG, "Drawing: " + bitmap.getWidth() + "x" + bitmap.getHeight());
-    final Canvas canvas = surface.lockCanvas(null);
+    try {
+      final Canvas canvas = surface.lockCanvas(null);
 
-    renderBitmap(bitmap, canvas);
+      renderBitmap(bitmap, canvas);
 
-    surface.unlockCanvasAndPost(canvas);
+      surface.unlockCanvasAndPost(canvas);
+
+    } catch (IllegalStateException e) {
+      // For some reason Samsung devices running 12 crash sometimes.
+      eventDispatcher.videoCodecError(e);
+      return;
+    }
     @Nullable
     final DecoderCounters decoderCounters = BitmapFactoryVideoRenderer.this.decoderCounters;
     if (decoderCounters != null) {
