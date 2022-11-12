@@ -25,13 +25,13 @@ public class AviSeekMapTest {
   @Test
   public void getFrames_givenExactSeekPointMatch() {
     final AviSeekMap aviSeekMap = DataHelper.getAviSeekMap();
-    final long position = aviSeekMap.getKeyFrameOffsets(DataHelper.AUDIO_ID) + aviSeekMap.seekOffset;
+    final long position = aviSeekMap.getKeyFrameOffsets(DataHelper.AUDIO_ID);
     final int secs = 4;
-    final ChunkHandler[] chunkHandlers = new ChunkHandler[]{DataHelper.getVideoChunkHandler(secs),
+    final StreamHandler[] streamHandlers = new StreamHandler[]{DataHelper.getVideoChunkHandler(secs),
         DataHelper.getAudioChunkHandler(secs)};
 
     int[] indexes = aviSeekMap.getIndexes(position);
-    for (int i=0;i<chunkHandlers.length;i++) {
+    for (int i = 0; i< streamHandlers.length; i++) {
       Assert.assertEquals(aviSeekMap.getSeekIndexes(i)[1], indexes[i]);
     }
   }

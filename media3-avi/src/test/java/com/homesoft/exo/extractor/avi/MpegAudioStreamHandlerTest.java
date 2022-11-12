@@ -21,14 +21,14 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 @RunWith(AndroidJUnit4.class)
-public class MpegAudioChunkHandlerTest {
+public class MpegAudioStreamHandlerTest {
   private static final int FPS = 24;
   private Format MP3_FORMAT = new Format.Builder().setChannelCount(2).
       setSampleMimeType(MimeTypes.AUDIO_MPEG).setSampleRate(44100).build();
   private static final long CHUNK_MS = C.MICROS_PER_SECOND / FPS;
   private final MpegAudioUtil.Header header = new MpegAudioUtil.Header();
   private FakeTrackOutput fakeTrackOutput;
-  private MpegAudioChunkHandler mpegAudioChunkHandler;
+  private MpegAudioStreamHandler mpegAudioChunkHandler;
   private byte[] mp3Frame;
   private long frameUs;
 
@@ -36,7 +36,7 @@ public class MpegAudioChunkHandlerTest {
   public void before() throws IOException {
     fakeTrackOutput = new FakeTrackOutput(false);
     fakeTrackOutput.format(MP3_FORMAT);
-    mpegAudioChunkHandler = new MpegAudioChunkHandler(0, fakeTrackOutput,
+    mpegAudioChunkHandler = new MpegAudioStreamHandler(0, fakeTrackOutput,
         new ChunkClock(C.MICROS_PER_SECOND, FPS), MP3_FORMAT.sampleRate);
 
     if (mp3Frame == null) {

@@ -25,7 +25,11 @@ import java.util.Arrays;
  * Factory for Boxes.  These usually exist inside a ListBox
  */
 public class BoxFactory {
-  static int[] types = {AviHeaderBox.AVIH, StreamHeaderBox.STRH, StreamFormatBox.STRF, StreamNameBox.STRN};
+  /**
+   * Arbitrary number to keep VM from crashing
+   */
+  static final int MAX_BOX_SIZE = 64*1024;
+  static int[] types = {AviHeaderBox.AVIH, StreamHeaderBox.STRH, StreamFormatBox.STRF, StreamNameBox.STRN, IndexBox.INDX};
   static {
     Arrays.sort(types);
   }
@@ -44,6 +48,8 @@ public class BoxFactory {
         return new StreamFormatBox(type, size, boxBuffer);
       case StreamNameBox.STRN:
         return new StreamNameBox(type, size, boxBuffer);
+      case IndexBox.INDX:
+        return new IndexBox(type, size, boxBuffer);
       default:
         return null;
     }
@@ -53,6 +59,9 @@ public class BoxFactory {
     if (isUnknown(type)) {
       input.skipFully(size);
       return null;
+    }
+    if (size > MAX_BOX_SIZE) {
+      throw new IOException("Box too big: " + AviExtractor.toString(type) + " " + size);
     }
     final ByteBuffer boxBuffer = AviExtractor.allocate(size);
     input.readFully(boxBuffer.array(),0,size);

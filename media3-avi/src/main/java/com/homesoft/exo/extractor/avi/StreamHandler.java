@@ -16,6 +16,7 @@
 package com.homesoft.exo.extractor.avi;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import androidx.media3.common.C;
@@ -29,12 +30,7 @@ import java.util.Arrays;
  * Handles chunk data from a given stream.
  * This acts a bridge between AVI and ExoPlayer
  */
-public class ChunkHandler {
-
-  /**
-   * Constant meaning all frames are considered key frames
-   */
-  public static final int[] ALL_KEY_FRAMES = new int[0];
+public class StreamHandler {
 
   public static final int TYPE_VIDEO = ('d' << 16) | ('c' << 24);
   public static final int TYPE_AUDIO = ('w' << 16) | ('b' << 24);
@@ -56,19 +52,23 @@ public class ChunkHandler {
   final int chunkIdAlt;
 
   /**
-   * Number of chunks as calculated by the index
-   */
-  int chunks;
-
-  /**
    * Size total size of the stream in bytes calculated by the index
    */
   int size;
+
+  final ChunkIndex chunkIndex = new ChunkIndex();
 
   /**
    * Ordered list of key frame chunk indexes
    */
   int[] keyFrames = new int[0];
+
+  /**
+   * Open DML IndexBox, currently we just support one, but multiple are possible
+   * Will be null if non-exist or if processed (to ChunkIndex)
+   */
+  @Nullable
+  private IndexBox indexBox;
 
   /**
    * Size of the current chunk in bytes
@@ -89,7 +89,11 @@ public class ChunkHandler {
     return  ('0' + tens) | (('0' + ones) << 8);
   }
 
-  ChunkHandler(int id, int chunkType, @NonNull TrackOutput trackOutput, @NonNull ChunkClock clock) {
+  static int getId(int chunkId) {
+    return ((chunkId >> 8) & 0xf) + (chunkId & 0xf) * 10;
+  }
+
+  StreamHandler(int id, int chunkType, @NonNull TrackOutput trackOutput, @NonNull ChunkClock clock) {
     this.chunkId = getChunkIdLower(id) | chunkType;
     this.clock = clock;
     this.trackOutput = trackOutput;
@@ -115,14 +119,14 @@ public class ChunkHandler {
 
   /**
    * Sets the list of key frames
-   * @param keyFrames list of frame indexes or {@link #ALL_KEY_FRAMES}
+   * @param keyFrames list of frame indexes or {@link ChunkIndex#ALL_KEY_FRAMES}
    */
   void setKeyFrames(@NonNull final int[] keyFrames) {
     this.keyFrames = keyFrames;
   }
 
   public boolean isKeyFrame() {
-    return keyFrames == ALL_KEY_FRAMES || Arrays.binarySearch(keyFrames, clock.getIndex()) >= 0;
+    return keyFrames == ChunkIndex.ALL_KEY_FRAMES || Arrays.binarySearch(keyFrames, clock.getIndex()) >= 0;
   }
 
   public boolean isVideo() {
@@ -182,7 +186,7 @@ public class ChunkHandler {
    * @return The unique stream id for this file
    */
   public int getId() {
-    return ((chunkId >> 8) & 0xf) + (chunkId & 0xf) * 10;
+    return getId(chunkId);
   }
 
   /**
@@ -191,5 +195,18 @@ public class ChunkHandler {
    */
   public void setIndex(int index) {
     getClock().setIndex(index);
+  }
+
+  @NonNull
+  public ChunkIndex getChunkIndex() {
+    return chunkIndex;
+  }
+
+  public IndexBox getIndexBox() {
+    return indexBox;
+  }
+
+  public void setIndexBox(IndexBox indexBox) {
+    this.indexBox = indexBox;
   }
 }

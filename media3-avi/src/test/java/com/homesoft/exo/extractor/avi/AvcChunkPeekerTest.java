@@ -42,12 +42,12 @@ public class AvcChunkPeekerTest {
       (byte)0xFE,(byte)0x9E,0x10,0,0};
 
   private FakeTrackOutput fakeTrackOutput;
-  private AvcChunkHandler avcChunkHandler;
+  private AvcStreamHandler avcChunkHandler;
 
   @Before
   public void before() {
     fakeTrackOutput = new FakeTrackOutput(false);
-    avcChunkHandler = new AvcChunkHandler(0, fakeTrackOutput,
+    avcChunkHandler = new AvcStreamHandler(0, fakeTrackOutput,
         new ChunkClock(10_000_000L, 24 * 10), FORMAT_BUILDER_AVC);
   }
 

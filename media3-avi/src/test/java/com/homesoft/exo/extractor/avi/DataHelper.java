@@ -106,26 +106,26 @@ public class DataHelper {
     return byteBuffer;
   }
 
-  public static ChunkHandler getVideoChunkHandler(int sec) {
+  public static StreamHandler getVideoChunkHandler(int sec) {
     final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
-    return new ChunkHandler(0, ChunkHandler.TYPE_VIDEO, fakeTrackOutput,
+    return new StreamHandler(0, StreamHandler.TYPE_VIDEO, fakeTrackOutput,
         new ChunkClock(sec * 1_000_000L, sec * FPS));
   }
 
-  public static ChunkHandler getAudioChunkHandler(int sec) {
+  public static StreamHandler getAudioChunkHandler(int sec) {
     final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
-    return new ChunkHandler(AUDIO_ID, ChunkHandler.TYPE_AUDIO, fakeTrackOutput,
+    return new StreamHandler(AUDIO_ID, StreamHandler.TYPE_AUDIO, fakeTrackOutput,
         new ChunkClock(sec * 1_000_000L, sec * FPS * AUDIO_PER_VIDEO));
   }
 
   public static AviSeekMap getAviSeekMap() {
-    final int[] keyFrameOffsetsDiv2= {4, 1024};
+    final long[] keyFrameOffsets= {MOVI_OFFSET + 4, MOVI_OFFSET + 1024};
     final int[] videoArray = new int[2];
     videoArray[1] = 4;
     final int[]  audioArray = new int[2];
     audioArray[1] = 128;
-    return new AviSeekMap(0, 100L, 8, keyFrameOffsetsDiv2,
-        new int[][]{videoArray, audioArray}, MOVI_OFFSET);
+    return new AviSeekMap(0, 100L, 8, keyFrameOffsets,
+        new int[][]{videoArray, audioArray});
   }
 
   private static void putIndex(final ByteBuffer byteBuffer, int chunkId, int flags, int offset,
@@ -151,8 +151,8 @@ public class DataHelper {
      */
   public static ByteBuffer getIndex(final int secs, final int keyFrameRate, int offset) {
     final int videoFrames = secs * FPS;
-    final int videoChunkId = ChunkHandler.TYPE_VIDEO | ChunkHandler.getChunkIdLower(0);
-    final int audioChunkId = ChunkHandler.TYPE_AUDIO | ChunkHandler.getChunkIdLower(1);
+    final int videoChunkId = StreamHandler.TYPE_VIDEO | StreamHandler.getChunkIdLower(0);
+    final int audioChunkId = StreamHandler.TYPE_AUDIO | StreamHandler.getChunkIdLower(1);
     final ByteBuffer byteBuffer = AviExtractor.allocate((videoFrames + videoFrames*AUDIO_PER_VIDEO) * 16);
 
     for (int v=0;v<videoFrames;v++) {

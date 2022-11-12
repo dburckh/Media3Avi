@@ -30,7 +30,7 @@ import java.io.IOException;
  * Corrects the time and PAR for H264 streams
  * AVC is very rare in AVI due to the rise of the mp4 container
  */
-public class AvcChunkHandler extends NalChunkHandler {
+public class AvcStreamHandler extends NalStreamHandler {
   private static final int NAL_TYPE_MASK = 0x1f;
   private static final int NAL_TYPE_IDR = 5; //I Frame
   private static final int NAL_TYPE_SEI = 6;
@@ -43,8 +43,8 @@ public class AvcChunkHandler extends NalChunkHandler {
   private float pixelWidthHeightRatio = 1f;
   private NalUnitUtil.SpsData spsData;
 
-  public AvcChunkHandler(int id, @NonNull TrackOutput trackOutput,
-      @NonNull ChunkClock clock, Format.Builder formatBuilder) {
+  public AvcStreamHandler(int id, @NonNull TrackOutput trackOutput,
+                          @NonNull ChunkClock clock, Format.Builder formatBuilder) {
     super(id, trackOutput, clock, 16);
     this.formatBuilder = formatBuilder;
   }

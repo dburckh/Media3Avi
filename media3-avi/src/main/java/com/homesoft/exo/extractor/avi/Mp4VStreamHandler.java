@@ -28,7 +28,7 @@ import java.io.IOException;
 /**
  * Peeks an MP4V stream looking for pixelWidthHeightRatio data
  */
-public class Mp4vChunkHandler extends NalChunkHandler {
+public class Mp4VStreamHandler extends NalStreamHandler {
   @VisibleForTesting
   static final byte SEQUENCE_START_CODE = (byte)0xb0;
   @VisibleForTesting
@@ -42,8 +42,8 @@ public class Mp4vChunkHandler extends NalChunkHandler {
   @VisibleForTesting()
   float pixelWidthHeightRatio = 1f;
 
-  public Mp4vChunkHandler(int id, @NonNull TrackOutput trackOutput,
-      @NonNull ChunkClock clock, @NonNull Format.Builder formatBuilder) {
+  public Mp4VStreamHandler(int id, @NonNull TrackOutput trackOutput,
+                           @NonNull ChunkClock clock, @NonNull Format.Builder formatBuilder) {
     super(id, trackOutput, clock, 5);
     this.formatBuilder = formatBuilder;
   }

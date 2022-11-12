@@ -27,7 +27,7 @@ public class NalChunkPeekerTest {
   @Test
   public void construct_givenTooSmallPeekSize() {
     try {
-      new MockNalChunkHandler(4, false);
+      new MockNalStreamHandler(4, false);
       Assert.fail();
     } catch (IllegalArgumentException e) {
       //Intentionally blank
@@ -37,7 +37,7 @@ public class NalChunkPeekerTest {
   @Test
   public void peek_givenNoData() {
     final FakeExtractorInput input = new FakeExtractorInput.Builder().build();
-    final MockNalChunkHandler peeker = new MockNalChunkHandler(5, false);
+    final MockNalStreamHandler peeker = new MockNalStreamHandler(5, false);
     try {
       peeker.peek(input, 10);
     } catch (IOException e) {
@@ -47,7 +47,7 @@ public class NalChunkPeekerTest {
   @Test
   public void peek_givenNoNal() {
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(new byte[10]).build();
-    final MockNalChunkHandler peeker = new MockNalChunkHandler(5, false);
+    final MockNalStreamHandler peeker = new MockNalStreamHandler(5, false);
     try {
       peeker.peek(input, 10);
     } catch (IOException e) {
@@ -60,7 +60,7 @@ public class NalChunkPeekerTest {
     DataHelper.appendNal(byteBuffer, (byte)32);
 
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array()).build();
-    final MockNalChunkHandler peeker = new MockNalChunkHandler(5, true);
+    final MockNalStreamHandler peeker = new MockNalStreamHandler(5, true);
     try {
       peeker.peek(input, 10);
       Assert.assertEquals(0, input.getPeekPosition());

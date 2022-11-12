@@ -31,7 +31,7 @@ import java.io.IOException;
  * 1. That muxers don't always mux MPEG audio on the frame boundary
  * 2. That some codecs can't handle multiple or partial frames (Pixels)
  */
-public class MpegAudioChunkHandler extends ChunkHandler {
+public class MpegAudioStreamHandler extends StreamHandler {
   private final MpegAudioUtil.Header header = new MpegAudioUtil.Header();
   private final ParsableByteArray scratch = new ParsableByteArray(8);
   private final int samplesPerSecond;
@@ -39,8 +39,8 @@ public class MpegAudioChunkHandler extends ChunkHandler {
   private int frameRemaining;
   private long timeUs = 0L;
 
-  MpegAudioChunkHandler(int id, @NonNull TrackOutput trackOutput, @NonNull ChunkClock clock,
-      int samplesPerSecond) {
+  MpegAudioStreamHandler(int id, @NonNull TrackOutput trackOutput, @NonNull ChunkClock clock,
+                         int samplesPerSecond) {
     super(id, TYPE_AUDIO, trackOutput, clock);
     this.samplesPerSecond = samplesPerSecond;
   }

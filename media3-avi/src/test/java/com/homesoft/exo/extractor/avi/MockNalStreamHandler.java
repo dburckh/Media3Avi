@@ -20,9 +20,9 @@ import androidx.media3.test.utils.FakeTrackOutput;
 
 import java.io.IOException;
 
-public class MockNalChunkHandler extends NalChunkHandler {
+public class MockNalStreamHandler extends NalStreamHandler {
   private boolean skip;
-  public MockNalChunkHandler(int peakSize, boolean skip) {
+  public MockNalStreamHandler(int peakSize, boolean skip) {
     super(0, new FakeTrackOutput(false), new ChunkClock(1_000_000L, 24), peakSize);
     this.skip = skip;
   }
