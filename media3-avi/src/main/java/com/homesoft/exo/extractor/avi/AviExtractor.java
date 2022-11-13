@@ -500,10 +500,9 @@ public class AviExtractor implements Extractor {
   }
 
   private void readIndx(@NonNull ExtractorInput input, int indxSize) throws IOException {
-    // +8 for chunkId and size
-    ByteBuffer byteBuffer = allocate(indxSize + 8);
+    ByteBuffer byteBuffer = allocate(indxSize);
     input.readFully(byteBuffer.array(), 0, byteBuffer.capacity());
-    byteBuffer.position(byteBuffer.position() + 10); //Skip fourCC, size, longs per entry, indexSubType
+    byteBuffer.position(byteBuffer.position() + 2); //Skip longs per entry, indexSubType
     final byte indexSubType = byteBuffer.get();
     if (indexSubType != 0) {
       throw new IOException("Expected IndexSubType 0 got " + indexSubType);
@@ -641,6 +640,7 @@ public class AviExtractor implements Extractor {
         ChunkPeeker chunkPeeker = new ChunkPeeker();
         chunkPeeker.peek(input);
         if (chunkPeeker.getChunkId() == IDX1) {
+          chunkPeeker.skip(input);
           readIdx1(input, chunkPeeker.getSize());
           return seekMovi(positionHolder);
         } else {
@@ -651,6 +651,7 @@ public class AviExtractor implements Extractor {
         ChunkPeeker chunkPeeker = new ChunkPeeker();
         chunkPeeker.peek(input);
         if ((chunkPeeker.getChunkId() & IndexBox.IX00_MASK) == IndexBox.IX00) {
+          chunkPeeker.skip(input);
           readIndx(input, chunkPeeker.getSize());
           StreamHandler streamHandler = getIndexStreamHandler();
           if (streamHandler == null) {
@@ -735,20 +736,37 @@ public class AviExtractor implements Extractor {
   private static void i(String message) {
     Log.i(TAG, message);
   }
+
   static class ChunkPeeker {
-    final ByteBuffer byteBuffer = allocate(8);
+    private static final int PEEK_SIZE = 8;
+    private static final int LIST_PEEK_SIZE = 12;
+    final ByteBuffer byteBuffer = allocate(12);
 
     public void peek(@NonNull ExtractorInput input) throws IOException {
-      input.peekFully(byteBuffer.array(), 0,  8);
+      input.peekFully(byteBuffer.array(), 0,  PEEK_SIZE);
+      if (isList()) {
+        input.peekFully(byteBuffer.array(), PEEK_SIZE,  LIST_PEEK_SIZE - PEEK_SIZE);
+      }
+    }
+
+    public boolean isList() {
+      return getChunkId() == ListBox.LIST;
     }
 
     public int getChunkId() {
       return byteBuffer.getInt(0);
     }
 
+    public int getListType() {
+      return byteBuffer.getInt(8);
+    }
+
     public int getSize() {
       return byteBuffer.getInt(4);
     }
 
+    public void skip(@NonNull ExtractorInput input) throws IOException {
+      input.skipFully(isList()?LIST_PEEK_SIZE:PEEK_SIZE);
+    }
   }
 }
