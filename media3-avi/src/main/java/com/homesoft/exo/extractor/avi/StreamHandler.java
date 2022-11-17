@@ -205,4 +205,9 @@ public class StreamHandler implements IReader {
   public void setIndexBox(IndexBox indexBox) {
     this.indexBox = indexBox;
   }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + "{position=" + getPosition() + "}";
+  }
 }

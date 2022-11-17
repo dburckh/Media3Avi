@@ -1,7 +1,11 @@
 package com.homesoft.exo.extractor.avi;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.media3.extractor.ExtractorInput;
+
+import com.homesoft.exo.avi.BuildConfig;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -60,18 +64,19 @@ abstract class BoxReader implements IReader {
     }
 
     protected boolean isComplete() {
+        if (BuildConfig.DEBUG && position > getEnd()) {
+            Log.wtf(getClass().getSimpleName(), "position(" + position + ") > end("+ getEnd() + ")");
+        }
         return position == getEnd();
     }
 
     protected boolean advancePosition(int bytes) {
         position += bytes;
-        if (isComplete()) {
-            return true;
-        }
+        //AVI's are byte aligned
         if ((position & 1)==1) {
             position++;
         }
-        return false;
+        return isComplete();
     }
 
     public static class HeaderPeeker {
@@ -108,6 +113,8 @@ abstract class BoxReader implements IReader {
     public String toString() {
         return getClass().getSimpleName()+"{" +
                 "position=" + position +
+                ", start=" + getStart() +
+                ", end=" + getEnd() +
                 '}';
     }
 }
