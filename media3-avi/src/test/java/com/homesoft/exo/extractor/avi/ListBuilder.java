@@ -35,7 +35,7 @@ public class ListBuilder {
     final ByteBuffer boxBuffer = AviExtractor.allocate(byteBuffer.capacity() + (int)boxLen);
     byteBuffer.clear();
     boxBuffer.put(byteBuffer);
-    boxBuffer.putInt(box.getType());
+    boxBuffer.putInt(box.getChunkId());
     boxBuffer.putInt((int)box.getSize());
     boxBuffer.put(box.getByteBuffer());
     byteBuffer = boxBuffer;

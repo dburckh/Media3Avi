@@ -33,8 +33,12 @@ import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.Objects;
+import java.util.Deque;
+import java.util.List;
 
 /**
  * Extractor based on the official MicroSoft spec
@@ -99,23 +103,12 @@ public class AviExtractor implements Extractor {
   @VisibleForTesting
   static final int PEEK_BYTES = 28;
 
-  @VisibleForTesting
-  static final int STATE_READ_TRACKS = 0;
-  @VisibleForTesting
-  static final int STATE_FIND_MOVI = 1;
-  @VisibleForTesting
-  static final int STATE_READ_IDX1 = 2;
-  @VisibleForTesting
-  static final int STATE_READ_INDX = 3;
-  @VisibleForTesting
-  static final int STATE_READ_CHUNKS = 5;
-  @VisibleForTesting
-  static final int STATE_SEEK_START = 6;
-
   static final int AVIIF_KEYFRAME = 16;
 
 
   static final int RIFF = 0x46464952; // RIFF
+  static final int AVIX_MASK = 0x00ffffff;
+  static final int AVIX = 0x00495641;
   static final int AVI_ = 0x20495641; // AVI<space>
   //movie data box
   static final int MOVI = 0x69766f6d; // movi
@@ -125,72 +118,24 @@ public class AviExtractor implements Extractor {
   static final int JUNK = 0x4b4e554a; // JUNK
   static final int REC_ = 0x20636572; // rec<space>
 
-  @VisibleForTesting
-  int state;
+  final private Deque<IReader> readerStack = new ArrayDeque<>(4);
+  final private ArrayList<MoviBox> moviList = new ArrayList<>();
+
   @VisibleForTesting
   ExtractorOutput output;
-  private AviHeaderBox aviHeader;
   private long durationUs = C.TIME_UNSET;
   /**
    * ChunkHandlers by StreamId
    */
   private StreamHandler[] streamHandlers = new StreamHandler[0];
-  //At the start of the movi tag
-  private long moviOffset;
-  private long moviEnd;
   @VisibleForTesting
   AviSeekMap aviSeekMap;
 
-  //Set if a chunk is only partially read
-  private transient StreamHandler streamHandler;
-
-  private transient int pendingSkip = C.POSITION_UNSET;
-
-  /**
-   *
-   * @param bytes Must be at least 20
-   */
-  @Nullable
-  static private ByteBuffer getAviBuffer(@NonNull ExtractorInput input, int bytes) throws IOException {
-    if (input.getLength() < bytes) {
-      return null;
-    }
-    final ByteBuffer byteBuffer = allocate(bytes);
-    input.peekFully(byteBuffer.array(), 0, bytes);
-    final int riff = byteBuffer.getInt();
-    if (riff != AviExtractor.RIFF) {
-      return null;
-    }
-    long reportedLen = getUInt(byteBuffer) + byteBuffer.position();
-    final long inputLen = input.getLength();
-    if (inputLen != C.LENGTH_UNSET && inputLen != reportedLen) {
-      w("Header length doesn't match stream length");
-    }
-    int avi = byteBuffer.getInt();
-    if (avi != AviExtractor.AVI_) {
-      return null;
-    }
-    final int list = byteBuffer.getInt();
-    if (list != ListBox.LIST) {
-      return null;
-    }
-    return byteBuffer;
-  }
-
   @Override
   public boolean sniff(@NonNull ExtractorInput input) throws IOException {
-    final ByteBuffer byteBuffer = getAviBuffer(input, PEEK_BYTES);
-    if (byteBuffer == null) {
-      return false;
-    }
-    //Len
-    byteBuffer.getInt();
-    final int hdrl = byteBuffer.getInt();
-    if (hdrl != ListBox.TYPE_HDRL) {
-      return false;
-    }
-    final int avih = byteBuffer.getInt();
-    return avih == AviHeaderBox.AVIH;
+    final BoxReader.HeaderPeeker headerPeeker = new BoxReader.HeaderPeeker();
+    headerPeeker.peak(input, BoxReader.PARENT_HEADER_SIZE);
+    return headerPeeker.getChunkId() == RIFF && headerPeeker.getType() == AVI_;
   }
 
   /**
@@ -240,33 +185,18 @@ public class AviExtractor implements Extractor {
     output.seekMap(aviSeekMap);
   }
 
-  @Nullable
-  public static ListBox readHeaderList(ExtractorInput input) throws IOException {
-    final ByteBuffer byteBuffer = getAviBuffer(input, 20);
-    if (byteBuffer == null) {
-      return null;
-    }
-    input.skipFully(20);
-    final int listSize = byteBuffer.getInt();
-    final ListBox listBox = ListBox.newInstance(listSize, new BoxFactory(), input);
-    if (listBox.getListType() != ListBox.TYPE_HDRL) {
-      return null;
-    }
-    return listBox;
-  }
-
   long getDuration() {
     return durationUs;
   }
 
   @Override
   public void init(@NonNull ExtractorOutput output) {
-    this.state = STATE_READ_TRACKS;
     this.output = output;
+    readerStack.add(new RootReader());
   }
 
   @VisibleForTesting
-  StreamHandler parseStream(final ListBox streamList, int streamId) {
+  StreamHandler buildStreamHandler(final ListBox streamList, int streamId) {
     final StreamHeaderBox streamHeader = streamList.getChild(StreamHeaderBox.class);
     final StreamFormatBox streamFormat = streamList.getChild(StreamFormatBox.class);
     if (streamHeader == null) {
@@ -358,64 +288,6 @@ public class AviExtractor implements Extractor {
     return streamHandler;
   }
 
-  private int readTracks(ExtractorInput input) throws IOException {
-    final ListBox headerList = readHeaderList(input);
-    if (headerList == null) {
-      throw new IOException("AVI Header List not found");
-    }
-    aviHeader = headerList.getChild(AviHeaderBox.class);
-    if (aviHeader == null) {
-      throw new IOException("AviHeader not found");
-    }
-    streamHandlers = new StreamHandler[aviHeader.getStreams()];
-    //This is usually wrong, so it will be overwritten by video if present
-    durationUs = aviHeader.getTotalFrames() * (long)aviHeader.getMicroSecPerFrame();
-
-    int streamId = 0;
-    for (Box box : headerList.getChildren()) {
-      if (box instanceof ListBox && ((ListBox) box).getListType() == ListBox.TYPE_STRL) {
-        final ListBox streamList = (ListBox) box;
-        streamHandlers[streamId] = parseStream(streamList, streamId);
-        streamId++;
-      }
-    }
-    output.endTracks();
-    state = STATE_FIND_MOVI;
-    return RESULT_CONTINUE;
-  }
-
-  int findMovi(ExtractorInput input, PositionHolder seekPosition) throws IOException {
-    ByteBuffer byteBuffer = allocate(12);
-    input.readFully(byteBuffer.array(), 0,12);
-    final int tag = byteBuffer.getInt();
-    final long size = getUInt(byteBuffer);
-    final long position = input.getPosition();
-    //-4 because we over read for the LIST type
-    long nextBox = alignPosition(position + size - 4);
-    if (tag == ListBox.LIST) {
-      final int listType = byteBuffer.getInt();
-      if (listType == MOVI) {
-        moviOffset = position - 4;
-        moviEnd = moviOffset + size;
-        final StreamHandler streamHandler = getIndexStreamHandler();
-        //Prioritize OpenDML if present
-        if (streamHandler != null) {
-          state = STATE_READ_INDX;
-          final IndexBox indexBox = Objects.requireNonNull(streamHandler.getIndexBox());
-          nextBox = indexBox.getEntry(0);
-        } else if (aviHeader.hasIndex()) {
-          state = STATE_READ_IDX1;
-        } else {
-          //No Index!
-          output.seekMap(new SeekMap.Unseekable(getDuration()));
-          return seekMovi(seekPosition);
-        }
-      }
-    }
-    seekPosition.position = nextBox;
-    return RESULT_SEEK;
-  }
-
   @VisibleForTesting
   StreamHandler getVideoTrack() {
     for (@Nullable StreamHandler streamHandler : streamHandlers) {
@@ -426,17 +298,20 @@ public class AviExtractor implements Extractor {
     return null;
   }
 
-  /**
-   * Walk the StreamHandlers looking for one with an unprocessed IndexBox
-   */
-  @Nullable
-  StreamHandler getIndexStreamHandler() {
-    for (@Nullable StreamHandler streamHandler : streamHandlers) {
-      if (streamHandler != null && streamHandler.getIndexBox() != null) {
-        return streamHandler;
+  @NonNull
+  List<IndexBox> getIndexBoxList() {
+    final ArrayList<IndexBox> list = new ArrayList<>();
+    for (StreamHandler streamHandler : streamHandlers) {
+      final IndexBox indexBox = streamHandler.getIndexBox();
+      if (indexBox != null) {
+        list.add(indexBox);
       }
     }
-    return null;
+    if (list.size() > 0 && list.size() != streamHandlers.length) {
+      w("StreamHandlers.length != IndexBoxes.length");
+      list.clear();
+    }
+    return list;
   }
 
   void fixTimings() {
@@ -468,14 +343,12 @@ public class AviExtractor implements Extractor {
   /**
    * Reads the index and sets the keyFrames and creates the SeekMap
    */
-  void readIdx1(ExtractorInput input, int indexSize) throws IOException {
-    if (indexSize < 16) {
+  void parseIdx1(ByteBuffer indexByteBuffer, long moviOffset) {
+    if (indexByteBuffer.capacity() < 16) {
       output.seekMap(new SeekMap.Unseekable(getDuration()));
       w("Index too short");
       return;
     }
-    final ByteBuffer indexByteBuffer = allocate(indexSize);
-    input.readFully(indexByteBuffer.array(), 0, indexSize);
     //Work-around a bug where the offset is from the start of the file, not "movi"
     if (indexByteBuffer.getInt(8) < moviOffset) {
       for (StreamHandler streamHandler : streamHandlers) {
@@ -499,103 +372,36 @@ public class AviExtractor implements Extractor {
     buildSeekMap();
   }
 
-  private void readIndx(@NonNull ExtractorInput input, int indxSize) throws IOException {
-    ByteBuffer byteBuffer = allocate(indxSize);
-    input.readFully(byteBuffer.array(), 0, byteBuffer.capacity());
-    byteBuffer.position(byteBuffer.position() + 2); //Skip longs per entry, indexSubType
-    final byte indexSubType = byteBuffer.get();
-    if (indexSubType != 0) {
-      throw new IOException("Expected IndexSubType 0 got " + indexSubType);
-    }
-    final byte indexType = byteBuffer.get();
-    if (indexType != IndexBox.AVI_INDEX_OF_CHUNKS) {
-      throw new IOException("Expected IndexType 1 got " + indexType);
-    }
-    final int entriesInUse = byteBuffer.getInt();
-    final int chunkId = byteBuffer.getInt();
-    final StreamHandler streamHandler = getStreamHandler(chunkId);
-    if (streamHandler == null) {
-      throw new IOException("Could not find StreamHandler");
-    }
-    final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
-    //baseOffset does not include the chunk header, so -8 to be compatible with IDX1
-    final long baseOffset = byteBuffer.getLong() - 8;
-    chunkIndex.setBaseOffset(baseOffset);
-    byteBuffer.position(byteBuffer.position() + 4); // Skip reserved
-
-    for (int i=0;i<entriesInUse;i++) {
-      final int offset = byteBuffer.getInt();
-      final int notKeyFrame = byteBuffer.getInt() & Integer.MIN_VALUE;
-      chunkIndex.add(offset, notKeyFrame == 0);
-    }
-    streamHandler.setIndexBox(null);
-  }
-
   @Nullable
   @VisibleForTesting
   StreamHandler getStreamHandler(int chunkId) {
-    for (@Nullable StreamHandler streamHandler : streamHandlers) {
-      if (streamHandler != null && streamHandler.handlesChunkId(chunkId)) {
+    for (StreamHandler streamHandler : streamHandlers) {
+      if (streamHandler.handlesChunkId(chunkId)) {
         return streamHandler;
       }
     }
     return null;
   }
 
-  int readChunks(@NonNull ExtractorInput input) throws IOException {
-    if (streamHandler != null) {
-      if (streamHandler.resume(input)) {
-        streamHandler = null;
-        alignInput(input);
-      }
-    } else {
-      final int toRead = 8;
-      ByteBuffer byteBuffer = allocate(toRead);
-      final byte[] bytes = byteBuffer.array();
-      alignInput(input);
-      input.readFully(bytes, 0, toRead);
-      //This is super inefficient, but should be rare
-      while (bytes[0] == 0) {
-        for (int i=1;i<toRead;i++) {
-          bytes[i - 1] = bytes[i];
-        }
-        int read = input.read(bytes, toRead - 1, 1);
-        if (read == C.RESULT_END_OF_INPUT) {
-          return RESULT_END_OF_INPUT;
+  void createStreamHandler(ListBox listBox) {
+    for (Box box : listBox.getChildren()) {
+      if (box instanceof AviHeaderBox) {
+        AviHeaderBox aviHeader = (AviHeaderBox)box;
+        durationUs = aviHeader.getTotalFrames() * (long)aviHeader.getMicroSecPerFrame();
+      } else if (box instanceof ListBox && ((ListBox) box).getType() == ListBox.TYPE_STRL) {
+        final ListBox streamListBox = (ListBox) box;
+        final int streamId = streamHandlers.length;
+        final StreamHandler streamHandler = buildStreamHandler(streamListBox, streamId);
+        if (streamHandler != null) {
+          streamHandlers = Arrays.copyOf(streamHandlers, streamId + 1);
+          streamHandlers[streamId] = streamHandler;
         }
       }
-      final int chunkId = byteBuffer.getInt();
-      if (chunkId == ListBox.LIST) {
-        input.skipFully(8);
-        return RESULT_CONTINUE;
-      }
-      final int size = byteBuffer.getInt();
-      if (chunkId == JUNK) {
-        input.skipFully(size);
-        alignInput(input);
-        return RESULT_CONTINUE;
-      }
-      final StreamHandler streamHandler = getStreamHandler(chunkId);
-      if (streamHandler == null) {
-        input.skipFully(size);
-        alignInput(input);
-        w("Unknown tag=" + toString(chunkId) + " pos=" + (input.getPosition() - 8)
-            + " size=" + size + " moviEnd=" + moviEnd);
-        return RESULT_CONTINUE;
-      }
-      if (streamHandler.newChunk(size, input)) {
-        alignInput(input);
-      } else {
-        this.streamHandler = streamHandler;
-      }
     }
-    if (input.getPosition() >= moviEnd) {
-      return C.RESULT_END_OF_INPUT;
-    }
-    return RESULT_CONTINUE;
+    output.endTracks();
   }
 
-  private int setPosition(@NonNull ExtractorInput input, @NonNull PositionHolder positionHolder, long position) {
+  private int setPosition(@NonNull ExtractorInput input, @NonNull PositionHolder positionHolder, long position) throws IOException {
     final long skip = position - input.getPosition();
     if (skip == 0) {
       return RESULT_CONTINUE;
@@ -603,66 +409,41 @@ public class AviExtractor implements Extractor {
       positionHolder.position = position;
       return RESULT_SEEK;
     } else {
-      pendingSkip = (int)skip;
+      input.skipFully((int)skip);
       return RESULT_CONTINUE;
     }
-  }
-
-  private int skip(@NonNull ExtractorInput input, @NonNull PositionHolder positionHolder, int size) {
-    return setPosition(input,positionHolder, input.getPosition() + size);
-  }
-
-  private int seekMovi(@NonNull PositionHolder positionHolder) {
-    positionHolder.position = moviOffset + 4;
-    state = STATE_READ_CHUNKS;
-    return RESULT_SEEK;
   }
 
   @Override
   public int read(@NonNull ExtractorInput input, @NonNull PositionHolder positionHolder) throws IOException {
-    if (pendingSkip != C.POSITION_UNSET) {
-      input.skipFully(pendingSkip);
-      pendingSkip = C.POSITION_UNSET;
-      return RESULT_CONTINUE;
+    final IReader reader = readerStack.peek();
+    if (reader == null) {
+      return RESULT_END_OF_INPUT;
     }
-    switch (state) {
-      case STATE_READ_CHUNKS:
-        return readChunks(input);
-      case STATE_SEEK_START:
-        state = STATE_READ_CHUNKS;
-        positionHolder.position = moviOffset + 4;
-        return RESULT_SEEK;
-      case STATE_READ_TRACKS:
-        return readTracks(input);
-      case STATE_FIND_MOVI:
-        return findMovi(input, positionHolder);
-      case STATE_READ_IDX1: {
-        ChunkPeeker chunkPeeker = new ChunkPeeker();
-        chunkPeeker.peek(input);
-        if (chunkPeeker.getChunkId() == IDX1) {
-          chunkPeeker.skip(input);
-          readIdx1(input, chunkPeeker.getSize());
-          return seekMovi(positionHolder);
-        } else {
-          return skip(input, positionHolder, chunkPeeker.getSize());
-        }
+    if (reader.getPosition() != input.getPosition()) {
+      final int op = setPosition(input, positionHolder, reader.getPosition());
+      if (op == RESULT_SEEK) {
+        i("Seek from: " + input.getPosition() + " for " + reader);
       }
-      case STATE_READ_INDX: {
-        ChunkPeeker chunkPeeker = new ChunkPeeker();
-        chunkPeeker.peek(input);
-        if ((chunkPeeker.getChunkId() & IndexBox.IX00_MASK) == IndexBox.IX00) {
-          chunkPeeker.skip(input);
-          readIndx(input, chunkPeeker.getSize());
-          StreamHandler streamHandler = getIndexStreamHandler();
-          if (streamHandler == null) {
-            buildSeekMap();
-            return seekMovi(positionHolder);
-          } else {
-            return setPosition(input, positionHolder,
-                    Objects.requireNonNull(streamHandler.getIndexBox()).getEntry(0));
+      return op;
+    }
+    if (reader.read(input)) {
+      readerStack.remove(reader);
+      if (reader instanceof ListBox && ((ListBox) reader).getType() == ListBox.TYPE_HDRL) {
+          createStreamHandler((ListBox)reader);
+      } else if (reader instanceof RiffBox) {
+        if (readerStack.isEmpty()) {
+          //This will Queue the MoviBoxes
+          seek(0L, 0L);
+          //After the last RiffBox finishes process the indexes
+          final List<IndexBox> indexBoxList = getIndexBoxList();
+          if (!indexBoxList.isEmpty()) {
+            final List<Long> list = new ArrayList<>();
+            for (IndexBox indexBox : indexBoxList) {
+              list.addAll(indexBox.getPositions());
+            }
+            readerStack.push(new IdxxBox(list));
           }
-        } else {
-          return skip(input, positionHolder, chunkPeeker.getSize());
         }
       }
     }
@@ -672,12 +453,17 @@ public class AviExtractor implements Extractor {
   @Override
   public void seek(long position, long timeUs) {
     //i("Seek pos=" + position +", us="+timeUs);
-    streamHandler = null;
-    if (position <= 0) {
-      if (moviOffset != 0) {
-        setIndexes(new int[streamHandlers.length]);
-        state = STATE_SEEK_START;
+    if (moviList.isEmpty()) {
+      return;
+    }
+    readerStack.clear();
+    for (MoviBox moviBox : moviList) {
+      if (moviBox.setPosition(position)) {
+        readerStack.add(moviBox);
       }
+    }
+    if (position <= 0) {
+        setIndexes(new int[streamHandlers.length]);
     } else {
       if (aviSeekMap != null) {
         setIndexes(aviSeekMap.getIndexes(position));
@@ -703,32 +489,6 @@ public class AviExtractor implements Extractor {
     this.streamHandlers = streamHandlers;
   }
 
-  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-  void setAviHeader(final AviHeaderBox aviHeaderBox) {
-    aviHeader = aviHeaderBox;
-  }
-
-  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-  void setMovi(final int offset, final int end) {
-    moviOffset = offset;
-    moviEnd = end;
-  }
-
-  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-  StreamHandler getStreamHandler() {
-    return streamHandler;
-  }
-
-  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-  void setChunkHandler(final StreamHandler streamHandler) {
-    this.streamHandler = streamHandler;
-  }
-
-  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-  long getMoviOffset() {
-    return moviOffset;
-  }
-
   private static void w(String message) {
     Log.w(TAG, message);
   }
@@ -737,36 +497,181 @@ public class AviExtractor implements Extractor {
     Log.i(TAG, message);
   }
 
-  static class ChunkPeeker {
-    private static final int PEEK_SIZE = 8;
-    private static final int LIST_PEEK_SIZE = 12;
-    final ByteBuffer byteBuffer = allocate(12);
+  /**
+   * Queue the IReader to run next
+   */
+  public void push(IReader reader) {
+    readerStack.push(reader);
+  }
 
-    public void peek(@NonNull ExtractorInput input) throws IOException {
-      input.peekFully(byteBuffer.array(), 0,  PEEK_SIZE);
-      if (isList()) {
-        input.peekFully(byteBuffer.array(), PEEK_SIZE,  LIST_PEEK_SIZE - PEEK_SIZE);
+  /**
+   * Add a MoviBox to the list
+   */
+  void addMovi(@NonNull MoviBox moviBox) {
+    moviList.add(moviBox);
+  }
+
+  class RootReader extends BoxReader {
+    private long size = Long.MIN_VALUE;
+
+    RootReader() {
+      super(0L, -1);
+    }
+
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    @Override
+    protected long getEnd() {
+      return size;
+    }
+
+    @Override
+    public boolean read(@NonNull ExtractorInput input) throws IOException {
+      if (size == Long.MIN_VALUE) {
+        size = input.getLength();
       }
+      final int chunkId = headerPeeker.peak(input, PARENT_HEADER_SIZE);
+      if (chunkId != RIFF) {
+        throw new IOException("Expected RIFF");
+      }
+      final int type = headerPeeker.getType();
+      if ((type & AVIX_MASK) != AVIX) {
+        throw new IOException("Expected AVI?");
+      }
+      push(new RiffBox(position + PARENT_HEADER_SIZE, headerPeeker.getSize() - 4));
+      return advancePosition(CHUNK_HEADER_SIZE + headerPeeker.getSize());
+    }
+  }
+
+  class RiffBox extends BoxReader {
+    private long moviOffset;
+    public RiffBox(long start, int size) {
+      super(start, size);
     }
 
-    public boolean isList() {
-      return getChunkId() == ListBox.LIST;
+    @Override
+    public boolean read(@NonNull ExtractorInput input) throws IOException {
+      final int chunkId = headerPeeker.peak(input, CHUNK_HEADER_SIZE);
+      final int size = headerPeeker.getSize();
+      switch (chunkId) {
+        case ListBox.LIST:
+          final int type = headerPeeker.peakType(input);
+          if (type == MOVI) {
+            moviOffset = position + 8;
+            addMovi(new MoviBox(position + PARENT_HEADER_SIZE, size - 4));
+            if (getIndexBoxList().size() > 0) {
+              //If we have OpenDML Indexes exit early and skip the IDX1 Index
+              return true;
+            }
+          } else if (type == ListBox.TYPE_HDRL){
+            final ListBox listBox = new ListBox(position + PARENT_HEADER_SIZE, size - 4, type, readerStack);
+            readerStack.push(listBox);
+          }
+          break;
+        case IDX1: {
+          final ByteBuffer byteBuffer = getByteBuffer(input, size);
+          parseIdx1(byteBuffer, moviOffset);
+        }
+      }
+      return advancePosition();
+    }
+  }
+
+  /**
+   * Box of stream chunks
+   */
+  class MoviBox extends BoxReader {
+    MoviBox(long start, int size) {
+      super(start, size);
     }
 
-    public int getChunkId() {
-      return byteBuffer.getInt(0);
+    /**
+     * Prepares the MoviBox to be added to the readerQueue
+     * @param position will be set to {@link #getStart()}
+     * @return false if position after end (don't  use)
+     */
+    public boolean setPosition(long position) {
+      if (position > getEnd()) {
+        return false;
+      }
+      this.position = Math.max(getStart(), position);
+      return true;
     }
 
-    public int getListType() {
-      return byteBuffer.getInt(8);
+    @Override
+    public boolean read(@NonNull ExtractorInput input) throws IOException {
+      final int chunkId = headerPeeker.peak(input, CHUNK_HEADER_SIZE);
+      final StreamHandler streamHandler = getStreamHandler(chunkId);
+      if (streamHandler != null) {
+        streamHandler.setPosition(position + CHUNK_HEADER_SIZE, headerPeeker.getSize());
+        push(streamHandler);
+      } else if (chunkId == REC_) {
+        position += 8;
+        return false;
+      }
+      return advancePosition();
+    }
+  }
+
+  class IdxxBox implements IReader {
+    private final ArrayDeque<Long> deque;
+
+    IdxxBox(List<Long> positionList) {
+      Collections.sort(positionList);
+      deque = new ArrayDeque<>(positionList);
     }
 
-    public int getSize() {
-      return byteBuffer.getInt(4);
+    @Override
+    public long getPosition() {
+      return deque.peekFirst();
     }
 
-    public void skip(@NonNull ExtractorInput input) throws IOException {
-      input.skipFully(isList()?LIST_PEEK_SIZE:PEEK_SIZE);
+    @Override
+    public boolean read(@NonNull ExtractorInput input) throws IOException {
+      deque.pop();
+      final BoxReader.HeaderPeeker headerPeeker = new BoxReader.HeaderPeeker();
+      headerPeeker.peak(input, BoxReader.CHUNK_HEADER_SIZE);
+      ByteBuffer byteBuffer = BoxReader.getByteBuffer(input, headerPeeker.getSize());
+      byteBuffer.position(byteBuffer.position() + 2); //Skip longs per entry
+      final byte indexSubType = byteBuffer.get();
+      if (indexSubType != 0) {
+        throw new IllegalArgumentException("Expected IndexSubType 0 got " + indexSubType);
+      }
+      final byte indexType = byteBuffer.get();
+      if (indexType != IndexBox.AVI_INDEX_OF_CHUNKS) {
+        throw new IllegalArgumentException("Expected IndexType 1 got " + indexType);
+      }
+      final int entriesInUse = byteBuffer.getInt();
+      final int chunkId = byteBuffer.getInt();
+      final StreamHandler streamHandler = getStreamHandler(chunkId);
+      if (streamHandler == null) {
+        w("No StreamHandler for " + AviExtractor.toString(chunkId));
+      } else {
+        final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
+        //baseOffset does not include the chunk header, so -8 to be compatible with IDX1
+        final long baseOffset = byteBuffer.getLong() - 8;
+        chunkIndex.setBaseOffset(baseOffset);
+        byteBuffer.position(byteBuffer.position() + 4); // Skip reserved
+
+        for (int i=0;i<entriesInUse;i++) {
+          final int offset = byteBuffer.getInt();
+          final int notKeyFrame = byteBuffer.getInt() & Integer.MIN_VALUE;
+          chunkIndex.add(offset, notKeyFrame == 0);
+        }
+      }
+      if (!deque.isEmpty()) {
+        return false;
+      }
+      buildSeekMap();
+      return true;
+    }
+    @Override
+    public String toString() {
+      return "IdxxBox{positions=" + deque +
+              "}";
     }
   }
 }

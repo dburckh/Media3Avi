@@ -28,8 +28,8 @@ public class AviHeaderBox extends ResidentBox {
   private static final int AVIF_MUSTUSEINDEX = 0x20;
   static final int AVIH = 0x68697661; // avih
 
-  AviHeaderBox(int type, int size, ByteBuffer byteBuffer) {
-    super(type, size, byteBuffer);
+  AviHeaderBox(ByteBuffer byteBuffer) {
+    super(AVIH, byteBuffer);
   }
 
   int getMicroSecPerFrame() {

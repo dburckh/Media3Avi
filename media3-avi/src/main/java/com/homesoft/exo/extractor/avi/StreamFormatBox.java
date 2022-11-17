@@ -25,8 +25,8 @@ import java.nio.ByteBuffer;
 public class StreamFormatBox extends ResidentBox {
   public static final int STRF = 0x66727473; // strf
 
-  StreamFormatBox(int type, int size, ByteBuffer byteBuffer) {
-    super(type, size, byteBuffer);
+  StreamFormatBox(ByteBuffer byteBuffer) {
+    super(STRF, byteBuffer);
   }
 
   @NonNull

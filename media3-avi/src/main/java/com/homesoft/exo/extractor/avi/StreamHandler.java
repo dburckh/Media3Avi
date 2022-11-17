@@ -15,6 +15,8 @@
  */
 package com.homesoft.exo.extractor.avi;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -30,7 +32,7 @@ import java.util.Arrays;
  * Handles chunk data from a given stream.
  * This acts a bridge between AVI and ExoPlayer
  */
-public class StreamHandler {
+public class StreamHandler implements IReader {
 
   public static final int TYPE_VIDEO = ('d' << 16) | ('c' << 24);
   public static final int TYPE_AUDIO = ('w' << 16) | ('b' << 24);
@@ -73,11 +75,13 @@ public class StreamHandler {
   /**
    * Size of the current chunk in bytes
    */
-  transient int chunkSize;
+  transient int readSize;
   /**
    * Bytes remaining in the chunk to be processed
    */
-  transient int chunkRemaining;
+  transient int readRemaining;
+
+  transient long readEnd;
 
   /**
    * Get stream id in ASCII
@@ -137,32 +141,23 @@ public class StreamHandler {
     return (chunkId & TYPE_AUDIO) == TYPE_AUDIO;
   }
 
-  /**
-   * Process a new chunk
-   * @param size total size of the chunk
-   * @return True if the chunk has been completely processed.  False implies {@link #resume}
-   *         will be called
-   */
-  public boolean newChunk(int size, @NonNull ExtractorInput input) throws IOException {
-    final int sampled = trackOutput.sampleData(input, size, false);
-    if (sampled == size) {
-      done(size);
-      return true;
-    } else {
-      chunkSize = size;
-      chunkRemaining = size - sampled;
-      return false;
-    }
+  public long getPosition() {
+    return readEnd - readRemaining;
+  }
+
+  public void setPosition(final long position, final int size) {
+    readEnd = position + size;
+    readRemaining = readSize = size;
   }
 
   /**
    * Resume a partial read of a chunk
    * May be called multiple times
    */
-  boolean resume(ExtractorInput input) throws IOException {
-    chunkRemaining -= trackOutput.sampleData(input, chunkRemaining, false);
-    if (chunkRemaining == 0) {
-      done(chunkSize);
+  public boolean read(@NonNull ExtractorInput input) throws IOException {
+    readRemaining -= trackOutput.sampleData(input, readRemaining, false);
+    if (readRemaining == 0) {
+      done(readSize);
       return true;
     } else {
       return false;
@@ -175,6 +170,7 @@ public class StreamHandler {
    */
   void done(final int size) {
     if (size > 0) {
+      Log.d("Test", "Stream: " + getId() + " key: " + isKeyFrame() + " Us: " + clock.getUs() + " size: " + size);
       trackOutput.sampleMetadata(
           clock.getUs(), (isKeyFrame() ? C.BUFFER_FLAG_KEY_FRAME : 0), size, 0, null);
     }

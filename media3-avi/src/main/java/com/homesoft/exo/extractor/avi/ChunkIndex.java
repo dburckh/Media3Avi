@@ -75,32 +75,23 @@ public class ChunkIndex {
 
     /**
      * Used for creating the SeekMap
-     * @param positions array of positions, usually key frame positions of another stream
-     * @return the chunk indices at or before the position or 0 if past end of stream
+     * @param seekPositions array of positions, usually key frame positions of another stream
+     * @return the chunk indices at or before the position.
+     *         Special Cases:
+     *         0 if before this stream has not started
+     *         chunkCount - 1 if there are no more chunks in the stream
      */
-    public int[] getIndices(final long[] positions) {
+    public int[] getIndices(final long[] seekPositions) {
         checkReleased();
-        final int[] work = new int[positions.length];
-        final AbstractList<Long> list = new AbstractList<Long>() {
-            @Override
-            public Long get(int index) {
-                return getIndexPosition(index);
-            }
 
-            @Override
-            public int size() {
-                return chunks;
+        final int[] work = new int[seekPositions.length];
+        int i = -1;
+        final int maxI = getChunkCount() - 1;
+        for (int p=0;p<seekPositions.length;p++) {
+            while (i < maxI && getIndexPosition(i + 1) < seekPositions[p]) {
+                i++;
             }
-        };
-        for (int i=0;i<positions.length;i++) {
-            int index = Collections.binarySearch(list, positions[i]);
-            if (index < 0) {
-                index = -index -1;
-                if (index == chunks) {
-                    index = 0;
-                }
-            }
-            work[i] = index;
+            work[p] = i;
         }
         return work;
     }
@@ -129,7 +120,8 @@ public class ChunkIndex {
         return Arrays.copyOf(work, k);
     }
 
-    private long getIndexPosition(final int index) {
+    @VisibleForTesting
+    long getIndexPosition(final int index) {
         return (offsets[index] & 0xffffffffL) + baseOffset;
     }
 

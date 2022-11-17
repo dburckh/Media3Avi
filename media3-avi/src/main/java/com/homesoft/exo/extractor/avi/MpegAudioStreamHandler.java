@@ -46,27 +46,21 @@ public class MpegAudioStreamHandler extends StreamHandler {
   }
 
   @Override
-  public boolean newChunk(int size, @NonNull ExtractorInput input) throws IOException {
-    if (size == 0) {
+  public boolean read(@NonNull ExtractorInput input) throws IOException {
+    if (readSize == 0) {
       //Empty frame, advance the clock and sync
       clock.advance();
       syncTime();
       return true;
     }
-    this.size = chunkRemaining = size;
-    return resume(input);
-  }
-
-  @Override
-  boolean resume(@NonNull ExtractorInput input) throws IOException {
     if (process(input)) {
       // Fail Over: If the scratch is the entire chunk, we didn't find a MP3 header.
       // Dump the chunk as is and hope the decoder can handle it.
-      if (scratch.limit() == size) {
+      if (scratch.limit() == readSize) {
         scratch.setPosition(0);
-        trackOutput.sampleData(scratch, size);
+        trackOutput.sampleData(scratch, readSize);
         scratch.reset(0);
-        done(size);
+        done(readSize);
       }
       return true;
     }
@@ -79,12 +73,12 @@ public class MpegAudioStreamHandler extends StreamHandler {
    * @return {@link C#RESULT_END_OF_INPUT} or number of bytes read.
    */
   int readScratch(ExtractorInput input, int bytes) throws IOException {
-    final int toRead = Math.min(bytes, chunkRemaining);
+    final int toRead = Math.min(bytes, readRemaining);
     final int read = input.read(scratch.getData(), scratch.limit(), toRead);
     if (read == C.RESULT_END_OF_INPUT) {
       return read;
     }
-    chunkRemaining -= read;
+    readRemaining -= read;
     scratch.setLimit(scratch.limit() + read);
     return read;
   }
@@ -96,9 +90,9 @@ public class MpegAudioStreamHandler extends StreamHandler {
   @VisibleForTesting
   boolean findFrame(ExtractorInput input) throws IOException {
     scratch.reset(0);
-    scratch.ensureCapacity(scratch.limit() + chunkRemaining);
+    scratch.ensureCapacity(scratch.limit() + readRemaining);
     int toRead = 4;
-    while (chunkRemaining > 0 && readScratch(input, toRead) != C.RESULT_END_OF_INPUT) {
+    while (readRemaining > 0 && readScratch(input, toRead) != C.RESULT_END_OF_INPUT) {
       while (scratch.bytesLeft() >= 4) {
         if (header.setForHeaderData(scratch.readInt())) {
           scratch.skipBytes(-4);
@@ -108,7 +102,7 @@ public class MpegAudioStreamHandler extends StreamHandler {
       }
       // 16 is small, but if we end up reading multiple frames into scratch, things get complicated.
       // We should only loop on seek, so this is the lesser of the evils.
-      toRead = Math.min(chunkRemaining, 16);
+      toRead = Math.min(readRemaining, 16);
     }
     return false;
   }
@@ -129,14 +123,14 @@ public class MpegAudioStreamHandler extends StreamHandler {
         return true;
       }
     }
-    final int bytes = trackOutput.sampleData(input, Math.min(frameRemaining, chunkRemaining), false);
+    final int bytes = trackOutput.sampleData(input, Math.min(frameRemaining, readRemaining), false);
     frameRemaining -= bytes;
     if (frameRemaining == 0) {
       trackOutput.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, header.frameSize, 0, null);
       timeUs += header.samplesPerFrame * C.MICROS_PER_SECOND / samplesPerSecond;
     }
-    chunkRemaining -= bytes;
-    return chunkRemaining == 0;
+    readRemaining -= bytes;
+    return readRemaining == 0;
   }
 
   @Override

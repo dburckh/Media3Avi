@@ -17,6 +17,7 @@ package com.homesoft.exo.extractor.avi;
 
 import android.content.Context;
 
+import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -24,8 +25,9 @@ import androidx.test.core.app.ApplicationProvider;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Deque;
 
 public class DataHelper {
   /* package */ static final int FPS = 24;
@@ -44,7 +46,7 @@ public class DataHelper {
     byteBuffer.putInt(24, rate);
     byteBuffer.putInt(32, length);
     byteBuffer.putInt(36, (type == StreamHeaderBox.VIDS ? 128 : 16) * 1024); //Suggested buffer size
-    return new StreamHeaderBox(StreamHeaderBox.STRH, 0x40, byteBuffer);
+    return new StreamHeaderBox(byteBuffer);
   }
 
   public static StreamHeaderBox getVidsStreamHeader() {
@@ -60,7 +62,7 @@ public class DataHelper {
     final byte[] buffer = TestUtil.getByteArray(context,"extractordumps/avi/aac_stream_format.dump");
     final ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
     byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-    return new StreamFormatBox(StreamFormatBox.STRF, buffer.length, byteBuffer);
+    return new StreamFormatBox(byteBuffer);
   }
 
   public static StreamFormatBox getVideoStreamFormat() {
@@ -69,33 +71,35 @@ public class DataHelper {
     videoFormat.setWidth(720);
     videoFormat.setHeight(480);
     videoFormat.setCompression(VideoFormat.XVID);
-    return new StreamFormatBox(StreamFormatBox.STRF, byteBuffer.capacity(), byteBuffer);
+    return new StreamFormatBox(byteBuffer);
   }
 
   public static ListBox getVideoStreamList() {
     final StreamHeaderBox streamHeaderBox = getVidsStreamHeader();
     final StreamFormatBox streamFormatBox = getVideoStreamFormat();
-    final ArrayList<Box> list = new ArrayList<>(2);
-    list.add(streamHeaderBox);
-    list.add(streamFormatBox);
-    return new ListBox(streamHeaderBox.getSize() + streamFormatBox.getSize(),
-        ListBox.TYPE_STRL, list);
+    final ListBox listBox = new ListBox(0L,
+            (int)(streamHeaderBox.getSize() + streamFormatBox.getSize()),
+            ListBox.TYPE_STRL, new ArrayDeque<>());
+    listBox.add(streamHeaderBox);
+    listBox.add(streamFormatBox);
+    return listBox;
   }
 
   public static ListBox getAacStreamList() throws IOException {
     final StreamHeaderBox streamHeaderBox = getAudioStreamHeader();
     final StreamFormatBox streamFormatBox = getAacStreamFormat();
-    final ArrayList<Box> list = new ArrayList<>(2);
-    list.add(streamHeaderBox);
-    list.add(streamFormatBox);
-    return new ListBox((int)(streamHeaderBox.getSize() + streamFormatBox.getSize()),
-        ListBox.TYPE_STRL, list);
+    final ListBox listBox = new ListBox(0L,
+            (int)(streamHeaderBox.getSize() + streamFormatBox.getSize()),
+            ListBox.TYPE_STRL, new ArrayDeque<>());
+    listBox.add(streamHeaderBox);
+    listBox.add(streamFormatBox);
+    return listBox;
   }
 
   public static StreamNameBox getStreamNameBox(final String name) {
     byte[] bytes = name.getBytes();
     bytes = Arrays.copyOf(bytes, bytes.length + 1);
-    return new StreamNameBox(StreamNameBox.STRN, bytes.length, ByteBuffer.wrap(bytes));
+    return new StreamNameBox(ByteBuffer.wrap(bytes));
   }
 
   public static ByteBuffer appendNal(final ByteBuffer byteBuffer, byte nalType) {
@@ -195,6 +199,20 @@ public class DataHelper {
 
   public static AviHeaderBox createAviHeaderBox() {
     final ByteBuffer byteBuffer = createAviHeader();
-    return new AviHeaderBox(AviHeaderBox.AVIH, byteBuffer.capacity(), byteBuffer);
+    return new AviHeaderBox(byteBuffer);
+  }
+
+  public static void readRecursive(IReader testReader, FakeExtractorInput extractorInput,
+                                   Deque<IReader> readerStack) throws IOException {
+    readerStack.add(testReader);
+    IReader reader;
+    while ((reader = readerStack.peek()) != null) {
+      if (extractorInput.getPosition() != reader.getPosition()) {
+        extractorInput.setPosition((int)reader.getPosition());
+      }
+      if (reader.read(extractorInput)) {
+        readerStack.remove(reader);
+      }
+    }
   }
 }

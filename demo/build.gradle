@@ -63,6 +63,7 @@ android {
             buildConfigField "boolean", "USE_DECODER_EXTENSIONS", "true"
         }
     }
+    namespace 'androidx.media3.demo.main'
 }
 
 dependencies {

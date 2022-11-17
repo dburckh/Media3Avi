@@ -10,8 +10,6 @@ android {
     }
 
     defaultConfig {
-        versionName project.ext.releaseVersion
-        versionCode project.ext.releaseVersionCode
         minSdkVersion project.ext.minSdkVersion
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -24,6 +22,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    namespace 'com.homesoft.exo.avi'
 }
 
 dependencies {

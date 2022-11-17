@@ -17,81 +17,120 @@ package com.homesoft.exo.extractor.avi;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.extractor.ExtractorInput;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Deque;
 import java.util.List;
 
-/**
- * An AVI LIST box.  Similar to a Java List<Box>
- */
-public class ListBox extends Box {
-  public static final int LIST = 0x5453494c; // LIST
-  public static final int TYPE_HDRL = 0x6c726468; // hdrl - Header List
-  public static final int TYPE_STRL = 0x6c727473; // strl - Stream List
+public class ListBox extends BoxReader implements Box {
+    final private int type;
+    private final ArrayList<Box> list = new ArrayList<>();
+    static final int LIST = 0x5453494c; // LIST
+    public static final int TYPE_HDRL = 0x6c726468; // hdrl - Header List
+    public static final int TYPE_STRL = 0x6c727473; // strl - Stream List
+    public static final int TYPE_ODML = 0x6C6D646F; // odlm - OpenDML List
+    private static final int[] SUPPORTED_TYPES = {TYPE_HDRL, TYPE_STRL, TYPE_ODML};
 
-  private final int listType;
-
-  final List<Box> children;
-
-  public ListBox(int size, int listType, List<Box> children) {
-    super(LIST, size);
-    this.listType = listType;
-    this.children = children;
-  }
-
-  public int getListType() {
-    return listType;
-  }
-
-  @NonNull
-  public List<Box> getChildren() {
-    return new ArrayList<>(children);
-  }
-
-  @Nullable
-  public <T extends Box> T getChild(Class<T> c) {
-    for (Box box : children) {
-      if (box.getClass() == c) {
-        return (T)box;
-      }
+    static {
+        Arrays.sort(SUPPORTED_TYPES);
     }
-    return null;
-  }
 
-  /**
-   * Assume the input is pointing to the list type
-   * @throws IOException
-   */
-  public static ListBox newInstance(final int listSize, BoxFactory boxFactory,
-      ExtractorInput input) throws IOException {
+    private final Deque<IReader> readerStack;
+    public ListBox(long position, int size, int type, @NonNull Deque<IReader> readerStack) {
+        super(position, size);
+        this.type = type;
+        this.readerStack = readerStack;
+    }
 
-    final List<Box> list = new ArrayList<>();
-    final ByteBuffer headerBuffer = AviExtractor.allocate(8);
-    byte [] bytes = headerBuffer.array();
-    input.readFully(bytes, 0, 4);
-    final int listType = headerBuffer.getInt();
-    //String listTypeName = AviExtractor.toString(listType);
-    long endPos = input.getPosition() + listSize - 4;
-    while (input.getPosition() + 8 < endPos) {
-      headerBuffer.clear();
-      input.readFully(bytes, 0, 8);
-      final int type = headerBuffer.getInt();
-      final int size = headerBuffer.getInt();
-      final Box box;
-      if (type == LIST) {
-        box = newInstance(size, boxFactory, input);
-      } else {
-        box = boxFactory.createBox(type, size, input);
-      }
-      AviExtractor.alignInput(input);
-      if (box != null) {
+    @Override
+    public int getChunkId() {
+        return LIST;
+    }
+
+    @VisibleForTesting
+    void add(Box box) {
         list.add(box);
-      }
     }
-    return new ListBox(listSize, listType, list);
-  }
+
+    @Override
+    protected boolean isComplete() {
+        if (super.isComplete()) {
+            for (Box box : list) {
+                if (box instanceof BoxReader && !((BoxReader) box).isComplete()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean read(@NonNull ExtractorInput input) throws IOException {
+        if (isComplete()) {
+            return true;
+        }
+        final int chunkId = headerPeeker.peak(input, CHUNK_HEADER_SIZE);
+        final int size = headerPeeker.getSize();
+        switch (chunkId) {
+            case AviHeaderBox.AVIH:
+                add(new AviHeaderBox(getByteBuffer(input, size)));
+                break;
+            case StreamHeaderBox.STRH:
+                add(new StreamHeaderBox(getByteBuffer(input, size)));
+                break;
+            case StreamFormatBox.STRF:
+                add(new StreamFormatBox(getByteBuffer(input, size)));
+                break;
+            case StreamNameBox.STRN:
+                add(new StreamNameBox(getByteBuffer(input, size)));
+            case IndexBox.INDX:
+                list.add(new IndexBox(getByteBuffer(input, size)));
+                break;
+            case ExtendedAviHeader.DMLH:
+                list.add(new ExtendedAviHeader(getByteBuffer(input, size)));
+                break;
+            case LIST:
+                final int type = headerPeeker.peakType(input);
+                if (Arrays.binarySearch(SUPPORTED_TYPES, type) >= 0) {
+                    ListBox listBox = new ListBox(position + PARENT_HEADER_SIZE, size - 4, type, readerStack);
+                    add(listBox);
+                    readerStack.push(listBox);
+                }
+                break;
+        }
+        return advancePosition();
+    }
+
+    public List<Box> getChildren() {
+        return Collections.unmodifiableList(list);
+    }
+
+    @Nullable
+    public <T extends Box> T getChild(Class<T> type) {
+        for (Box box : list) {
+            if (box.getClass() == type) {
+                return (T) box;
+            }
+        }
+        return null;
+    }
+
+    public int getType() {
+        return type;
+    }
+
+    @Override
+    public String toString() {
+        return "ListBox{" +
+                "type=" + AviExtractor.toString(type) +
+                ", position=" + position +
+                ", list=" + list +
+                '}';
+    }
 }

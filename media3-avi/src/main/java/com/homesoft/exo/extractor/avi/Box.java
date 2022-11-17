@@ -19,20 +19,9 @@ package com.homesoft.exo.extractor.avi;
  * This is referred to as a Chunk in the MS spec, but that gets confusing with AV chunks.
  * Borrowed the term from mp4 as these are similar to boxes or atoms.
  */
-public class Box {
-  private final int size;
-  private final int type;
+public interface Box {
 
-  Box(int type, int size) {
-    this.type = type;
-    this.size = size;
-  }
+  long getSize();
 
-  public int getSize() {
-    return size;
-  }
-
-  public int getType() {
-    return type;
-  }
+  int getChunkId();
 }

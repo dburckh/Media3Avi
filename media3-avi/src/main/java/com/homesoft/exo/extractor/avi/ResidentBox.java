@@ -23,12 +23,23 @@ import java.nio.ByteOrder;
 /**
  * A box that is resident in memory
  */
-public class ResidentBox extends Box {
+public class ResidentBox implements Box {
   final ByteBuffer byteBuffer;
+  final private int chunkId;
 
-  ResidentBox(int type, int size, ByteBuffer byteBuffer) {
-    super(type, size);
+  ResidentBox(int chunkId, ByteBuffer byteBuffer) {
+    this.chunkId = chunkId;
     this.byteBuffer = byteBuffer;
+  }
+
+  @Override
+  public int getChunkId() {
+    return chunkId;
+  }
+
+  @Override
+  public long getSize() {
+    return byteBuffer.capacity();
   }
 
   /**
@@ -40,5 +51,10 @@ public class ResidentBox extends Box {
     clone.order(ByteOrder.LITTLE_ENDIAN);
     clone.clear();
     return clone;
+  }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName();
   }
 }

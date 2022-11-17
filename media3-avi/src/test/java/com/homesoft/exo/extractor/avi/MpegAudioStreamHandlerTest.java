@@ -53,7 +53,8 @@ public class MpegAudioStreamHandlerTest {
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(new byte[1024]).
         build();
 
-    mpegAudioChunkHandler.newChunk((int)input.getLength(), input);
+    mpegAudioChunkHandler.setPosition(0L,(int)input.getLength());
+    mpegAudioChunkHandler.read(input);
     Assert.assertEquals(1024, fakeTrackOutput.getSampleData(0).length);
     Assert.assertEquals(CHUNK_MS, mpegAudioChunkHandler.getClock().getUs());
   }
@@ -61,7 +62,8 @@ public class MpegAudioStreamHandlerTest {
   public void newChunk_givenEmptyChunk() throws IOException {
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(new byte[0]).
         build();
-    mpegAudioChunkHandler.newChunk((int)input.getLength(), input);
+    mpegAudioChunkHandler.setPosition(0L,(int)input.getLength());
+    mpegAudioChunkHandler.read(input);
     Assert.assertEquals(C.MICROS_PER_SECOND / 24, mpegAudioChunkHandler.getClock().getUs());
   }
 
@@ -75,7 +77,8 @@ public class MpegAudioStreamHandlerTest {
   public void newChunk_givenSingleFrame() throws IOException {
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(mp3Frame).build();
 
-    mpegAudioChunkHandler.newChunk(mp3Frame.length, input);
+    mpegAudioChunkHandler.setPosition(0L, mp3Frame.length);
+    mpegAudioChunkHandler.read(input);
     Assert.assertArrayEquals(mp3Frame, fakeTrackOutput.getSampleData(0));
     Assert.assertEquals(frameUs, mpegAudioChunkHandler.getTimeUs());
   }
@@ -92,11 +95,12 @@ public class MpegAudioStreamHandlerTest {
         build();
 
     mpegAudioChunkHandler.setIndex(1); //Seek
-    Assert.assertFalse(mpegAudioChunkHandler.newChunk(byteBuffer.capacity(), input));
+    mpegAudioChunkHandler.setPosition(0L, byteBuffer.capacity());
+    Assert.assertFalse(mpegAudioChunkHandler.read(input));
     Assert.assertArrayEquals(mp3Frame, fakeTrackOutput.getSampleData(0));
     Assert.assertEquals(frameUs + CHUNK_MS, mpegAudioChunkHandler.getTimeUs());
 
-    Assert.assertTrue(mpegAudioChunkHandler.resume(input));
+    Assert.assertTrue(mpegAudioChunkHandler.read(input));
     Assert.assertEquals(header.frameSize - remainder, mpegAudioChunkHandler.getFrameRemaining());
   }
 
@@ -108,11 +112,12 @@ public class MpegAudioStreamHandlerTest {
 
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array()).
         build();
-    Assert.assertFalse(mpegAudioChunkHandler.newChunk(byteBuffer.capacity(), input));
+    mpegAudioChunkHandler.setPosition(0L, byteBuffer.capacity());
+    Assert.assertFalse(mpegAudioChunkHandler.read(input));
     Assert.assertEquals(1, fakeTrackOutput.getSampleCount());
     Assert.assertEquals(0L, fakeTrackOutput.getSampleTimeUs(0));
 
-    Assert.assertTrue(mpegAudioChunkHandler.resume(input));
+    Assert.assertTrue(mpegAudioChunkHandler.read(input));
     Assert.assertEquals(2, fakeTrackOutput.getSampleCount());
     Assert.assertEquals(frameUs, fakeTrackOutput.getSampleTimeUs(1));
   }

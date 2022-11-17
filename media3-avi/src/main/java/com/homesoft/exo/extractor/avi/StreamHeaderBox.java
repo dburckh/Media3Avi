@@ -31,8 +31,8 @@ public class StreamHeaderBox extends ResidentBox {
   //Videos Stream
   static final int VIDS = 0x73646976; // vids
 
-  StreamHeaderBox(int type, int size, ByteBuffer byteBuffer) {
-    super(type, size, byteBuffer);
+  StreamHeaderBox(ByteBuffer byteBuffer) {
+    super(STRH, byteBuffer);
   }
 
   public boolean isAudio() {

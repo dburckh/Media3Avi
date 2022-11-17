@@ -1,6 +1,8 @@
 package com.homesoft.exo.extractor.avi;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Open DML Index Box
@@ -13,8 +15,8 @@ public class IndexBox extends ResidentBox {
     public static final byte AVI_INDEX_OF_INDEXES = 0;
     public static final byte AVI_INDEX_OF_CHUNKS = 1;
 
-    IndexBox(int type, int size, ByteBuffer byteBuffer) {
-        super(type, size, byteBuffer);
+    IndexBox(ByteBuffer byteBuffer) {
+        super(INDX, byteBuffer);
     }
     int getLongsPerEntry() {
         return byteBuffer.getShort(0) & 0xffff;
@@ -25,10 +27,17 @@ public class IndexBox extends ResidentBox {
     int getEntriesInUse() {
         return byteBuffer.get(4);
     }
-    int getChunkId() {
+    int getIndexChunkId() {
         return byteBuffer.get(8);
     }
-    long getEntry(int index) {
-        return byteBuffer.getInt(0x18 + index * 4) & AviExtractor.UINT_MASK;
+
+    List<Long> getPositions() {
+        final int entriesInUse = getEntriesInUse();
+        final ArrayList<Long> list = new ArrayList<>(getEntriesInUse());
+        final int entrySize = getLongsPerEntry() * 4;
+        for (int i=0;i<entriesInUse;i++) {
+            list.add(byteBuffer.getLong(0x18 + i * entrySize));
+        }
+        return list;
     }
 }

@@ -115,9 +115,12 @@ public abstract class NalStreamHandler extends StreamHandler {
 
   abstract boolean skip(byte nalType);
 
-  public boolean newChunk(int size, ExtractorInput input) throws IOException {
-    peek(input, size);
-    return super.newChunk(size, input);
+  @Override
+  public boolean read(@NonNull ExtractorInput input) throws IOException {
+    if (readSize == readRemaining) {
+      peek(input, readSize);
+    }
+    return super.read(input);
   }
 
   public void peek(ExtractorInput input, final int size) throws IOException {

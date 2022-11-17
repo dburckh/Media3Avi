@@ -23,8 +23,8 @@ import java.nio.ByteBuffer;
 public class StreamNameBox extends ResidentBox {
   public static final int STRN = 0x6e727473; // strn
 
-  StreamNameBox(int type, int size, ByteBuffer byteBuffer) {
-    super(type, size, byteBuffer);
+  StreamNameBox(ByteBuffer byteBuffer) {
+    super(STRN,byteBuffer);
   }
 
   public String getName() {
