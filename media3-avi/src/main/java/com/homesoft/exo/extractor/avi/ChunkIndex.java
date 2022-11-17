@@ -13,36 +13,30 @@ import java.util.Collections;
  */
 public class ChunkIndex {
     public static final int[] ALL_KEY_FRAMES = new int[0];
-    private static final int[] RELEASED = new int[0];
-    private long baseOffset;
+    private static final long[] RELEASED = new long[0];
 
     @NonNull
     @VisibleForTesting
-    int[] offsets = new int[8];
+    long[] positions = new long[8];
     boolean[] keys = new boolean[8];
     int keyFrameCount = 0;
     private int chunks = 0;
 
     /**
      * Add a chunk
-     * @param offset offset of the chunk from baseOffset
-     * @param key true = key frame
+     * @param key key frame
      */
-    public void add(int offset, boolean key) {
-        if (offsets.length <= chunks) {
+    public void add(long position, boolean key) {
+        if (positions.length <= chunks) {
             checkReleased();
             grow();
         }
-        this.offsets[chunks] = offset;
+        this.positions[chunks] = position;
         if (key) {
             this.keys[chunks] = true;
             keyFrameCount++;
         }
         chunks++;
-    }
-
-    public void setBaseOffset(long baseOffset) {
-        this.baseOffset = baseOffset;
     }
 
     boolean isAllKeyFrames() {
@@ -88,7 +82,7 @@ public class ChunkIndex {
         int i = -1;
         final int maxI = getChunkCount() - 1;
         for (int p=0;p<seekPositions.length;p++) {
-            while (i < maxI && getIndexPosition(i + 1) < seekPositions[p]) {
+            while (i < maxI && positions[i + 1] < seekPositions[p]) {
                 i++;
             }
             work[p] = i;
@@ -110,7 +104,7 @@ public class ChunkIndex {
         long clockUs = 0;
         long nextKeyFrameUs = 0;
         int k = 0;
-        for (int f = 0; f< chunks; f++) {
+        for (int f = 0; f < chunks; f++) {
             if (clockUs >= nextKeyFrameUs) {
                 work[k++] = f;
                 nextKeyFrameUs += keyFrameRateUs;
@@ -120,11 +114,6 @@ public class ChunkIndex {
         return Arrays.copyOf(work, k);
     }
 
-    @VisibleForTesting
-    long getIndexPosition(final int index) {
-        return (offsets[index] & 0xffffffffL) + baseOffset;
-    }
-
     /**
      * Get the positions for an array of indices
      */
@@ -132,13 +121,13 @@ public class ChunkIndex {
         checkReleased();
         long[] positions = new long[indices.length];
         for (int k=0;k<indices.length;k++) {
-            positions[k] = getIndexPosition(indices[k]);
+            positions[k] = this.positions[indices[k]];
         }
         return positions;
     }
 
     private void checkReleased() {
-        if (offsets == RELEASED) {
+        if (positions == RELEASED) {
             throw new IllegalStateException("ChunkIndex released.");
         }
     }
@@ -147,13 +136,13 @@ public class ChunkIndex {
      * Release the arrays at this point only getChunks() and isAllKeyFrames() are allowed
      */
     public void release() {
-        offsets = RELEASED;
+        positions = RELEASED;
         keys = new boolean[0];
     }
 
     private void grow() {
-        int newLength = offsets.length +  Math.max(offsets.length /4, 1);
-        offsets = Arrays.copyOf(offsets, newLength);
+        int newLength = positions.length +  Math.max(positions.length /4, 1);
+        positions = Arrays.copyOf(positions, newLength);
         keys = Arrays.copyOf(keys, newLength);
     }
 }

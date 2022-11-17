@@ -315,27 +315,28 @@ public class AviExtractor implements Extractor {
   }
 
   void fixTimings() {
-    for (@Nullable final StreamHandler streamHandler : streamHandlers) {
-      if (streamHandler != null) {
-        if (streamHandler.isAudio()) {
-          final long streamDurationUs = streamHandler.getClock().durationUs;
-          final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
-          final int chunks = chunkIndex.getChunkCount();
-          i("Audio #" + streamHandler.getId() + " chunks: " + chunks + " us=" + streamDurationUs +
-              " size=" + streamHandler.size);
-          final ChunkClock linearClock = streamHandler.getClock();
-          //If the audio track duration is off from the video by >5 % recalc using video
-          if ((streamDurationUs - durationUs) / (float)durationUs > .05f) {
-            w("Audio #" + streamHandler.getId() + " duration is off using videoDuration");
-            linearClock.setDuration(durationUs);
-          }
-          linearClock.setChunks(chunks);
-          final int keyFrameCount = chunkIndex.keyFrameCount;
-          if (!chunkIndex.isAllKeyFrames()) {
-            w("Audio is not all key frames chunks=" + chunks + " keyFrames=" +
-                    keyFrameCount);
-          }
+    for (final StreamHandler streamHandler : streamHandlers) {
+      final long streamDurationUs = streamHandler.getClock().durationUs;
+      final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
+      final int chunks = chunkIndex.getChunkCount();
+      if (streamHandler.isAudio()) {
+        i("Audio #" + streamHandler.getId() + " chunks: " + chunks + " us=" + streamDurationUs +
+            " size=" + streamHandler.size);
+        final ChunkClock linearClock = streamHandler.getClock();
+        //If the audio track duration is off from the video by >5 % recalc using video
+        if ((streamDurationUs - durationUs) / (float)durationUs > .05f) {
+          w("Audio #" + streamHandler.getId() + " duration is off using videoDuration");
+          linearClock.setDuration(durationUs);
         }
+        linearClock.setChunks(chunks);
+        final int keyFrameCount = chunkIndex.keyFrameCount;
+        if (!chunkIndex.isAllKeyFrames()) {
+          w("Audio is not all key frames chunks=" + chunks + " keyFrames=" +
+                  keyFrameCount);
+        }
+      } else if (streamHandler.isVideo()) {
+        final ChunkClock clock = streamHandler.getClock();
+        clock.setChunks(chunks);
       }
     }
   }
@@ -349,14 +350,7 @@ public class AviExtractor implements Extractor {
       w("Index too short");
       return;
     }
-    //Work-around a bug where the offset is from the start of the file, not "movi"
-    if (indexByteBuffer.getInt(8) < moviOffset) {
-      for (StreamHandler streamHandler : streamHandlers) {
-        if (streamHandler != null) {
-          streamHandler.getChunkIndex().setBaseOffset(moviOffset);
-        }
-      }
-    }
+    final long baseOffset = indexByteBuffer.getInt(8) < moviOffset ? moviOffset : 0L;
 
     while (indexByteBuffer.remaining() >= 16) {
       final int chunkId = indexByteBuffer.getInt(); //0
@@ -366,7 +360,8 @@ public class AviExtractor implements Extractor {
 
       final StreamHandler streamHandler = getStreamHandler(chunkId);
       if (streamHandler != null) {
-        streamHandler.getChunkIndex().add(offset, (flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME);
+        streamHandler.getChunkIndex().add(baseOffset + (offset & UINT_MASK),
+                (flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME);
       }
     }
     buildSeekMap();
@@ -383,21 +378,32 @@ public class AviExtractor implements Extractor {
     return null;
   }
 
-  void createStreamHandler(ListBox listBox) {
-    for (Box box : listBox.getChildren()) {
-      if (box instanceof AviHeaderBox) {
-        AviHeaderBox aviHeader = (AviHeaderBox)box;
-        durationUs = aviHeader.getTotalFrames() * (long)aviHeader.getMicroSecPerFrame();
-      } else if (box instanceof ListBox && ((ListBox) box).getType() == ListBox.TYPE_STRL) {
-        final ListBox streamListBox = (ListBox) box;
-        final int streamId = streamHandlers.length;
-        final StreamHandler streamHandler = buildStreamHandler(streamListBox, streamId);
-        if (streamHandler != null) {
-          streamHandlers = Arrays.copyOf(streamHandlers, streamId + 1);
-          streamHandlers[streamId] = streamHandler;
+  void createStreamHandler(ListBox headerListBox) {
+    final AviHeaderBox aviHeader = headerListBox.getChild(AviHeaderBox.class);
+    if (aviHeader == null) {
+      throw new IllegalArgumentException("Expected AviHeader in header ListBox");
+    }
+    long totalFrames = aviHeader.getTotalFrames();
+    for (Box box : headerListBox.getChildren()) {
+      if (box instanceof ListBox) {
+        final ListBox listBox = (ListBox) box;
+        if (listBox.getType() == ListBox.TYPE_STRL) {
+          final ListBox streamListBox = (ListBox) box;
+          final int streamId = streamHandlers.length;
+          final StreamHandler streamHandler = buildStreamHandler(streamListBox, streamId);
+          if (streamHandler != null) {
+            streamHandlers = Arrays.copyOf(streamHandlers, streamId + 1);
+            streamHandlers[streamId] = streamHandler;
+          }
+        } else if (listBox.getType() == ListBox.TYPE_ODML) {
+          final ExtendedAviHeader extendedAviHeader = listBox.getChild(ExtendedAviHeader.class);
+          if (extendedAviHeader != null) {
+            totalFrames = extendedAviHeader.getTotalFrames();
+          }
         }
       }
     }
+    durationUs = totalFrames * aviHeader.getMicroSecPerFrame();
     output.endTracks();
   }
 
@@ -655,13 +661,12 @@ public class AviExtractor implements Extractor {
         final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
         //baseOffset does not include the chunk header, so -8 to be compatible with IDX1
         final long baseOffset = byteBuffer.getLong() - 8;
-        chunkIndex.setBaseOffset(baseOffset);
         byteBuffer.position(byteBuffer.position() + 4); // Skip reserved
 
         for (int i=0;i<entriesInUse;i++) {
           final int offset = byteBuffer.getInt();
-          final int notKeyFrame = byteBuffer.getInt() & Integer.MIN_VALUE;
-          chunkIndex.add(offset, notKeyFrame == 0);
+          chunkIndex.add(baseOffset + (offset & AviExtractor.UINT_MASK),
+                  (byteBuffer.getInt() & Integer.MIN_VALUE) == 0);
         }
       }
       if (!deque.isEmpty()) {

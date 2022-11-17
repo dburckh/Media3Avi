@@ -32,8 +32,8 @@ public class AviHeaderBox extends ResidentBox {
     super(AVIH, byteBuffer);
   }
 
-  int getMicroSecPerFrame() {
-    return byteBuffer.getInt(0);
+  long getMicroSecPerFrame() {
+    return byteBuffer.getInt(0) & AviExtractor.UINT_MASK;
   }
 
   //4 = dwMaxBytesPerSec
