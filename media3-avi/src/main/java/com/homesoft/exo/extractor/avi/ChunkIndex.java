@@ -3,9 +3,8 @@ package com.homesoft.exo.extractor.avi;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
-import java.util.AbstractList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.BitSet;
 
 /**
  * Used to parse Indexes and build the SeekMap
@@ -15,11 +14,10 @@ public class ChunkIndex {
     public static final int[] ALL_KEY_FRAMES = new int[0];
     private static final long[] RELEASED = new long[0];
 
+    final BitSet keyFrames = new BitSet();
     @NonNull
     @VisibleForTesting
     long[] positions = new long[8];
-    boolean[] keys = new boolean[8];
-    int keyFrameCount = 0;
     private int chunks = 0;
 
     /**
@@ -33,18 +31,21 @@ public class ChunkIndex {
         }
         this.positions[chunks] = position;
         if (key) {
-            this.keys[chunks] = true;
-            keyFrameCount++;
+            keyFrames.set(chunks);
         }
         chunks++;
     }
 
     boolean isAllKeyFrames() {
-        return keyFrameCount == chunks;
+        return keyFrames.cardinality() == chunks;
     }
 
     public int getChunkCount() {
         return chunks;
+    }
+
+    public int getKeyFrameCount() {
+        return keyFrames.cardinality();
     }
 
     /**
@@ -56,14 +57,14 @@ public class ChunkIndex {
         if (isAllKeyFrames()) {
             return ALL_KEY_FRAMES;
         } else {
-            final int[] keyFrames = new int[keyFrameCount];
+            final int[] keyFrameIndices = new int[getKeyFrameCount()];
             int i=0;
             for (int f = 0; f < chunks; f++) {
-                if (keys[f]) {
-                    keyFrames[i++] = f;
+                if (keyFrames.get(f)) {
+                    keyFrameIndices[i++] = f;
                 }
             }
-            return keyFrames;
+            return keyFrameIndices;
         }
     }
 
@@ -137,12 +138,11 @@ public class ChunkIndex {
      */
     public void release() {
         positions = RELEASED;
-        keys = new boolean[0];
+        keyFrames.clear();
     }
 
     private void grow() {
         int newLength = positions.length +  Math.max(positions.length /4, 1);
         positions = Arrays.copyOf(positions, newLength);
-        keys = Arrays.copyOf(keys, newLength);
     }
 }

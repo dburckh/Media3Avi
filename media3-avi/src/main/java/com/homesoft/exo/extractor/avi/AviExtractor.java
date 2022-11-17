@@ -329,7 +329,7 @@ public class AviExtractor implements Extractor {
           linearClock.setDuration(durationUs);
         }
         linearClock.setChunks(chunks);
-        final int keyFrameCount = chunkIndex.keyFrameCount;
+        final int keyFrameCount = chunkIndex.getKeyFrameCount();
         if (!chunkIndex.isAllKeyFrames()) {
           w("Audio is not all key frames chunks=" + chunks + " keyFrames=" +
                   keyFrameCount);
