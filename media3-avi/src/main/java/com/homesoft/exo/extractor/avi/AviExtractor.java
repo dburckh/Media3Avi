@@ -541,15 +541,17 @@ public class AviExtractor implements Extractor {
       if ((type & AVIX_MASK) != AVIX) {
         throw new IOException("Expected AVI?");
       }
-      push(new RiffBox(position + PARENT_HEADER_SIZE, headerPeeker.getSize() - 4));
+      push(new RiffBox(position + PARENT_HEADER_SIZE, headerPeeker.getSize() - 4, type));
       return advancePosition(CHUNK_HEADER_SIZE + headerPeeker.getSize());
     }
   }
 
   class RiffBox extends BoxReader {
     private long moviOffset;
-    public RiffBox(long start, int size) {
+    private final int riffType;
+    public RiffBox(long start, int size, int type) {
       super(start, size);
+      this.riffType = type;
     }
 
     @Override
@@ -562,7 +564,7 @@ public class AviExtractor implements Extractor {
           if (type == MOVI) {
             moviOffset = position + 8;
             addMovi(new MoviBox(position + PARENT_HEADER_SIZE, size - 4));
-            if (getIndexBoxList().size() > 0) {
+            if (riffType == AVIX || getIndexBoxList().size() > 0) {
               //If we have OpenDML Indexes exit early and skip the IDX1 Index
               return true;
             }
