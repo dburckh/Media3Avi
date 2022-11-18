@@ -16,7 +16,7 @@ public class ChunkIndexTest {
         final int[] audioIndices = chunkIndex.getIndices(videoPositions);
         Assert.assertEquals(audioIndices.length, videoPositions.length);
         // Special case where audio arrives after first frame
-        Assert.assertEquals(-1, audioIndices[0]);
+        Assert.assertEquals(0, audioIndices[0]);
         for (int i=1;i<videoPositions.length;i++) {
             Assert.assertTrue(chunkIndex.getIndexPosition(audioIndices[i]) < videoPositions[i]);
         }

@@ -676,10 +676,10 @@ public class AviExtractor implements Extractor {
 
     @Override
     public boolean read(@NonNull ExtractorInput input) throws IOException {
-      deque.pop();
       final BoxReader.HeaderPeeker headerPeeker = new BoxReader.HeaderPeeker();
       headerPeeker.peak(input, BoxReader.CHUNK_HEADER_SIZE);
       ByteBuffer byteBuffer = BoxReader.getByteBuffer(input, headerPeeker.getSize());
+      deque.pop();
       byteBuffer.position(byteBuffer.position() + 2); //Skip longs per entry
       final byte indexSubType = byteBuffer.get();
       if (indexSubType != 0) {
