@@ -118,8 +118,10 @@ public class AviExtractor implements Extractor {
   static final int JUNK = 0x4b4e554a; // JUNK
   static final int REC_ = 0x20636572; // rec<space>
 
-  final private Deque<IReader> readerStack = new ArrayDeque<>(4);
-  final private ArrayList<MoviBox> moviList = new ArrayList<>();
+  @VisibleForTesting
+  final Deque<IReader> readerStack = new ArrayDeque<>(4);
+  @VisibleForTesting
+  final ArrayList<MoviBox> moviList = new ArrayList<>();
 
   @VisibleForTesting
   ExtractorOutput output;

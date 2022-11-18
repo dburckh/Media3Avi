@@ -15,6 +15,9 @@
  */
 package com.homesoft.exo.extractor.avi;
 
+import static com.homesoft.exo.extractor.avi.BoxReader.CHUNK_HEADER_SIZE;
+import static com.homesoft.exo.extractor.avi.BoxReader.PARENT_HEADER_SIZE;
+
 import android.content.Context;
 
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -38,6 +41,7 @@ public class DataHelper {
   /* package */ static final int VIDEO_ID = 0;
   /* package */ static final int AUDIO_ID = 1;
   /* package */ static final int MOVI_OFFSET = 4096;
+  /* package */ static final int FIRST_CHUNK = PARENT_HEADER_SIZE;
 
   public static StreamHeaderBox getStreamHeader(int type, int scale, int rate, int length) {
     final ByteBuffer byteBuffer = AviExtractor.allocate(0x40);
@@ -177,7 +181,7 @@ public class DataHelper {
   public static ByteBuffer getRiffHeader(int bufferSize, int headerListSize) {
     ByteBuffer byteBuffer = AviExtractor.allocate(bufferSize);
     byteBuffer.putInt(AviExtractor.RIFF);
-    byteBuffer.putInt(128);
+    byteBuffer.putInt(bufferSize - CHUNK_HEADER_SIZE);
     byteBuffer.putInt(AviExtractor.AVI_);
     byteBuffer.putInt(ListBox.LIST);
     byteBuffer.putInt(headerListSize);
