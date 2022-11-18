@@ -89,11 +89,12 @@ public class ListBox extends BoxReader implements Box {
                 break;
             case StreamNameBox.STRN:
                 add(new StreamNameBox(getByteBuffer(input, size)));
+                break;
             case IndexBox.INDX:
-                list.add(new IndexBox(getByteBuffer(input, size)));
+                add(new IndexBox(getByteBuffer(input, size)));
                 break;
             case ExtendedAviHeader.DMLH:
-                list.add(new ExtendedAviHeader(getByteBuffer(input, size)));
+                add(new ExtendedAviHeader(getByteBuffer(input, size)));
                 break;
             case LIST:
                 final int type = headerPeeker.peakType(input);
@@ -115,7 +116,7 @@ public class ListBox extends BoxReader implements Box {
     public <T extends Box> T getChild(Class<T> type) {
         for (Box box : list) {
             if (box.getClass() == type) {
-                return (T) box;
+                return type.cast(box);
             }
         }
         return null;

@@ -33,14 +33,11 @@ public class StreamNameBoxTest {
     listBuilder.addBox(DataHelper.getStreamNameBox(name));
     final ByteBuffer listBuffer = listBuilder.build();
     final FakeExtractorInput fakeExtractorInput = new FakeExtractorInput.Builder().setData(listBuffer.array()).build();
-    fakeExtractorInput.skipFully(8);
     ArrayDeque<IReader> readerStack = new ArrayDeque<>();
-    ListBox listBox = new ListBox(BoxReader.PARENT_HEADER_SIZE, listBuffer.capacity() - 8, ListBox.TYPE_STRL, readerStack);
+    ListBox listBox = new ListBox(BoxReader.PARENT_HEADER_SIZE, listBuffer.capacity() - BoxReader.PARENT_HEADER_SIZE, ListBox.TYPE_STRL, readerStack);
     DataHelper.readRecursive(listBox, fakeExtractorInput, readerStack);
     Assert.assertEquals(1, listBox.getChildren().size());
     final StreamNameBox streamNameBox = (StreamNameBox) listBox.getChildren().get(0);
-    //Test + nullT = 5 bytes, so verify that the input is properly aligned
-    Assert.assertEquals(0, fakeExtractorInput.getPosition() & 1);
     Assert.assertEquals(name, streamNameBox.getName());
   }
 }

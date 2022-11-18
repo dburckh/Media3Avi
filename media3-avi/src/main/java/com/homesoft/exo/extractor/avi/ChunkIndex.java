@@ -73,7 +73,7 @@ public class ChunkIndex {
      * @param seekPositions array of positions, usually key frame positions of another stream
      * @return the chunk indices at or before the position.
      *         Special Cases:
-     *         0 if before this stream has not started
+     *         -1 if before this stream has not started
      *         chunkCount - 1 if there are no more chunks in the stream
      */
     public int[] getIndices(final long[] seekPositions) {
@@ -89,6 +89,11 @@ public class ChunkIndex {
             work[p] = i;
         }
         return work;
+    }
+
+    @VisibleForTesting
+    public long getIndexPosition(int index) {
+        return positions[index];
     }
 
     /**

@@ -3,6 +3,7 @@ package com.homesoft.exo.extractor.avi;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.media3.extractor.ExtractorInput;
 
 import com.homesoft.exo.avi.BuildConfig;
@@ -92,6 +93,16 @@ abstract class BoxReader implements IReader {
 
         public int getType() {
             return peakBuffer.getInt(8);
+        }
+
+
+        public boolean peakSafe(@NonNull ExtractorInput input) throws IOException {
+            if (input.peekFully(peakBuffer.array(), 0, PARENT_HEADER_SIZE, true)) {
+                input.resetPeekPosition();
+                peakBuffer.position(PARENT_HEADER_SIZE);
+                return true;
+            }
+            return false;
         }
 
         public int peak(@NonNull ExtractorInput input, int bytes) throws IOException {

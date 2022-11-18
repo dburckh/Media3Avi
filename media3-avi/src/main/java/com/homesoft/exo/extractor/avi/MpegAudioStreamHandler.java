@@ -27,6 +27,8 @@ import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
 
 /**
+ * This is an MP3 Extractor within the AviExtractor
+ *
  * Resolves several issues with Mpeg Audio
  * 1. That muxers don't always mux MPEG audio on the frame boundary
  * 2. That some codecs can't handle multiple or partial frames (Pixels)
@@ -35,8 +37,12 @@ public class MpegAudioStreamHandler extends StreamHandler {
   private final MpegAudioUtil.Header header = new MpegAudioUtil.Header();
   private final ParsableByteArray scratch = new ParsableByteArray(8);
   private final int samplesPerSecond;
-  //Bytes remaining in the Mpeg Audio frame
-  private int frameRemaining;
+  /**
+   *  Bytes remaining in the Mpeg Audio frame
+   *  This includes bytes in both the scratch buffer and the stream
+   *  0 means we are seeking a new frame
+   */
+  private int frameRemaining = 0;
   private long timeUs = 0L;
 
   MpegAudioStreamHandler(int id, @NonNull TrackOutput trackOutput, @NonNull ChunkClock clock,
@@ -53,27 +59,45 @@ public class MpegAudioStreamHandler extends StreamHandler {
       syncTime();
       return true;
     }
-    if (process(input)) {
-      // Fail Over: If the scratch is the entire chunk, we didn't find a MP3 header.
-      // Dump the chunk as is and hope the decoder can handle it.
-      if (scratch.limit() == readSize) {
-        scratch.setPosition(0);
-        trackOutput.sampleData(scratch, readSize);
-        scratch.reset(0);
-        done(readSize);
+    if (frameRemaining == 0) {
+      //Find the next frame
+      if (!findFrame(input)) {
+        if (scratch.limit() >= readSize) {
+          scratch.setPosition(0);
+          trackOutput.sampleData(scratch, readSize);
+          scratch.reset(0);
+          done(readSize);
+        }
+        return readComplete();
       }
-      return true;
     }
-    return false;
+    int scratchBytes = scratch.bytesLeft();
+    if (scratchBytes > 0) {
+//      System.out.println("SampleData-scratch: " + scratchBytes);
+      trackOutput.sampleData(scratch, scratchBytes);
+      frameRemaining -= scratchBytes;
+      scratch.reset(0);
+    }
+
+//    System.out.println("SampleData-input : " + Math.min(frameRemaining, readRemaining));
+    final int bytes = trackOutput.sampleData(input, Math.min(frameRemaining, readRemaining), false);
+    frameRemaining -= bytes;
+    if (frameRemaining == 0) {
+      trackOutput.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, header.frameSize, 0, null);
+      timeUs += header.samplesPerFrame * C.MICROS_PER_SECOND / samplesPerSecond;
+    }
+    readRemaining -= bytes;
+    return readComplete();
   }
 
   /**
-   * Read from input to scratch
+   * Soft read from input to scratch
    * @param bytes to attempt to read
    * @return {@link C#RESULT_END_OF_INPUT} or number of bytes read.
    */
   int readScratch(ExtractorInput input, int bytes) throws IOException {
     final int toRead = Math.min(bytes, readRemaining);
+    scratch.ensureCapacity(scratch.limit() + toRead);
     final int read = input.read(scratch.getData(), scratch.limit(), toRead);
     if (read == C.RESULT_END_OF_INPUT) {
       return read;
@@ -89,13 +113,12 @@ public class MpegAudioStreamHandler extends StreamHandler {
    */
   @VisibleForTesting
   boolean findFrame(ExtractorInput input) throws IOException {
-    scratch.reset(0);
-    scratch.ensureCapacity(scratch.limit() + readRemaining);
     int toRead = 4;
     while (readRemaining > 0 && readScratch(input, toRead) != C.RESULT_END_OF_INPUT) {
       while (scratch.bytesLeft() >= 4) {
         if (header.setForHeaderData(scratch.readInt())) {
           scratch.skipBytes(-4);
+          frameRemaining = header.frameSize;
           return true;
         }
         scratch.skipBytes(-3);
@@ -107,36 +130,11 @@ public class MpegAudioStreamHandler extends StreamHandler {
     return false;
   }
 
-  /**
-   * Process the chunk by breaking it in Mpeg audio frames
-   * @return true if the chunk has been completely processed
-   */
-  @VisibleForTesting
-  boolean process(ExtractorInput input) throws IOException {
-    if (frameRemaining == 0) {
-      //Find the next frame
-      if (findFrame(input)) {
-        final int scratchBytes = scratch.bytesLeft();
-        trackOutput.sampleData(scratch, scratchBytes);
-        frameRemaining = header.frameSize - scratchBytes;
-      } else {
-        return true;
-      }
-    }
-    final int bytes = trackOutput.sampleData(input, Math.min(frameRemaining, readRemaining), false);
-    frameRemaining -= bytes;
-    if (frameRemaining == 0) {
-      trackOutput.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, header.frameSize, 0, null);
-      timeUs += header.samplesPerFrame * C.MICROS_PER_SECOND / samplesPerSecond;
-    }
-    readRemaining -= bytes;
-    return readRemaining == 0;
-  }
-
   @Override
   public void setIndex(int index) {
     super.setIndex(index);
     syncTime();
+    scratch.reset(0);
     frameRemaining = 0;
   }
 

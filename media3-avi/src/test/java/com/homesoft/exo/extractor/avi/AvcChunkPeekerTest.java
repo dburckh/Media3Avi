@@ -54,7 +54,7 @@ public class AvcChunkPeekerTest {
   private void peekStreamHeader() throws IOException {
     final Context context = ApplicationProvider.getApplicationContext();
     final byte[] bytes =
-        TestUtil.getByteArray(context,"extractordumps/avi/avc_sei_sps_pps_ird.dump");
+        TestUtil.getByteArray(context,"media/avi/avc_sei_sps_pps_ird.dump");
 
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(bytes).build();
 

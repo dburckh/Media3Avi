@@ -150,13 +150,17 @@ public class StreamHandler implements IReader {
     readRemaining = readSize = size;
   }
 
+  protected boolean readComplete() {
+    return readRemaining == 0;
+  }
+
   /**
    * Resume a partial read of a chunk
    * May be called multiple times
    */
   public boolean read(@NonNull ExtractorInput input) throws IOException {
     readRemaining -= trackOutput.sampleData(input, readRemaining, false);
-    if (readRemaining == 0) {
+    if (readComplete()) {
       done(readSize);
       return true;
     } else {
@@ -170,7 +174,7 @@ public class StreamHandler implements IReader {
    */
   void done(final int size) {
     if (size > 0) {
-      Log.d("Test", "Stream: " + getId() + " key: " + isKeyFrame() + " Us: " + clock.getUs() + " size: " + size);
+      //System.out.println("Stream: " + getId() + " key: " + isKeyFrame() + " Us: " + clock.getUs() + " size: " + size);
       trackOutput.sampleMetadata(
           clock.getUs(), (isKeyFrame() ? C.BUFFER_FLAG_KEY_FRAME : 0), size, 0, null);
     }

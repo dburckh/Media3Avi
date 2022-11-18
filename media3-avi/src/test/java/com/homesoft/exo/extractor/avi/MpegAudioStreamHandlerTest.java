@@ -41,7 +41,7 @@ public class MpegAudioStreamHandlerTest {
 
     if (mp3Frame == null) {
       final Context context = ApplicationProvider.getApplicationContext();
-      mp3Frame = TestUtil.getByteArray(context,"extractordumps/avi/frame.mp3.dump");
+      mp3Frame = TestUtil.getByteArray(context,"media/avi/frame.mp3.dump");
       header.setForHeaderData(ByteBuffer.wrap(mp3Frame).getInt());
       //About 26ms
       frameUs = header.samplesPerFrame * C.MICROS_PER_SECOND / header.sampleRate;

@@ -7,9 +7,8 @@ public class ChunkIndexTest {
     @Test
     public void getIndices() {
         final long[] videoPositions = {10, 20, 30, 40, 50, 60, 70};
-        final int[] audioOffsets = {7/*12*/, 14/*19*/, 28/*33*/, 42/*47*/};
+        final int[] audioOffsets = {12, 19, 33, 47};
         ChunkIndex chunkIndex = new ChunkIndex();
-        chunkIndex.setBaseOffset(5);
         for (int i : audioOffsets) {
             chunkIndex.add(i, true);
         }

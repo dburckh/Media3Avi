@@ -56,7 +56,7 @@ public class Mp4vChunkPeekerTest {
     final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
     final Format.Builder formatBuilder = new Format.Builder();
     final Context context = ApplicationProvider.getApplicationContext();
-    final byte[] bytes = TestUtil.getByteArray(context, "extractordumps/avi/mp4v_sequence.dump");
+    final byte[] bytes = TestUtil.getByteArray(context, "media/avi/mp4v_sequence.dump");
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(bytes).build();
     final Mp4VStreamHandler mp4vChunkPeeker = new Mp4VStreamHandler(0, fakeTrackOutput,
         new ChunkClock(1_000_000L, 24), formatBuilder);

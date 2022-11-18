@@ -59,7 +59,7 @@ public class DataHelper {
 
   public static StreamFormatBox getAacStreamFormat() throws IOException {
     final Context context = ApplicationProvider.getApplicationContext();
-    final byte[] buffer = TestUtil.getByteArray(context,"extractordumps/avi/aac_stream_format.dump");
+    final byte[] buffer = TestUtil.getByteArray(context,"media/avi/aac_stream_format.dump");
     final ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
     byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
     return new StreamFormatBox(byteBuffer);

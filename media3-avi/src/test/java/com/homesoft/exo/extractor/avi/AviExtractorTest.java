@@ -159,7 +159,7 @@ public class AviExtractorTest {
     aviExtractor.init(fakeExtractorOutput);
     aviExtractor.setSeekMap(aviSeekMap);
     Assert.assertEquals(aviSeekMap, fakeExtractorOutput.seekMap);
-    Assert.assertEquals(aviSeekMap, aviExtractor.aviSeekMap);
+    Assert.assertEquals(aviSeekMap, aviExtractor.seekMap);
   }
 
   @Test
@@ -498,14 +498,6 @@ public class AviExtractorTest {
 //  }
 
   @Test
-  public void getChunkHandler_givenListWithNull() {
-    final AviExtractor aviExtractor = new AviExtractor();
-    final StreamHandler streamHandler = DataHelper.getAudioChunkHandler(9);
-    aviExtractor.setChunkHandlers(new StreamHandler[]{null, streamHandler});
-    Assert.assertSame(streamHandler, aviExtractor.getStreamHandler(streamHandler.chunkId));
-  }
-
-  @Test
   public void release() {
     //Shameless way to get 100% method coverage
     final AviExtractor aviExtractor = new AviExtractor();
@@ -613,14 +605,14 @@ public class AviExtractorTest {
   @Test
   public void unboundIntArray_add_givenExceedsCapacity() {
     final ChunkIndex chunkIndex = new ChunkIndex();
-    final int testLen = chunkIndex.offsets.length + 1;
+    final int testLen = chunkIndex.positions.length + 1;
     for (int i=0; i < testLen; i++) {
       chunkIndex.add(i, false);
     }
 
     Assert.assertEquals(testLen, chunkIndex.getChunkCount());
     for (int i=0; i < testLen; i++) {
-      Assert.assertEquals(i, chunkIndex.offsets[i]);
+      Assert.assertEquals(i, chunkIndex.positions[i]);
     }
   }
 }
