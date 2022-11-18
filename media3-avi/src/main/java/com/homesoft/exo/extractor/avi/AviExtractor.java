@@ -285,7 +285,7 @@ public class AviExtractor implements Extractor {
     }
     if (streamHandler != null) {
       final IndexBox indexBox = streamList.getChild(IndexBox.class);
-      if (indexBox != null) {
+      if (indexBox != null && indexBox.getIndexType() == IndexBox.AVI_INDEX_OF_INDEXES) {
         streamHandler.setIndexBox(indexBox);
       }
     }
