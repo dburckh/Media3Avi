@@ -25,9 +25,7 @@ public class IndexBox extends ResidentBox {
     int getEntriesInUse() {
         return byteBuffer.get(4);
     }
-    int getIndexChunkId() {
-        return byteBuffer.get(8);
-    }
+    //8 = IndexChunkId
 
     List<Long> getPositions() {
         final int entriesInUse = getEntriesInUse();
