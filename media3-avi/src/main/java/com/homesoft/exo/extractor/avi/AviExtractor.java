@@ -185,6 +185,8 @@ public class AviExtractor implements Extractor {
   void setSeekMap(SeekMap seekMap) {
     this.seekMap = seekMap;
     output.seekMap(seekMap);
+    //Parsing complete, load movi(s)
+    seek(0L, 0L);
   }
 
   long getDuration() {
@@ -450,23 +452,16 @@ public class AviExtractor implements Extractor {
       readerStack.remove(reader);
       if (reader instanceof ListBox && ((ListBox) reader).getType() == ListBox.TYPE_HDRL) {
           createStreamHandler((ListBox)reader);
-      } else if (reader instanceof RiffReader) {
-        if (readerStack.isEmpty()) {
-          //This will Queue the MoviBoxes
-          seek(0L, 0L);
-          //After the last RiffBox finishes process the indexes
-          final List<IndexBox> indexBoxList = getIndexBoxList();
-          if (!indexBoxList.isEmpty()) {
-            final List<Long> list = new ArrayList<>();
-            for (IndexBox indexBox : indexBoxList) {
-              list.addAll(indexBox.getPositions());
-            }
-            readerStack.push(new IdxxBox(list));
-          }
-        }
       } else if (reader instanceof RootReader) {
-        //Parsing complete, load movi(s)
-        seek(0L, 0L);
+        //After the last RiffBox finishes process the OpenDML indexes
+        final List<IndexBox> indexBoxList = getIndexBoxList();
+        if (!indexBoxList.isEmpty()) {
+          final List<Long> list = new ArrayList<>();
+          for (IndexBox indexBox : indexBoxList) {
+            list.addAll(indexBox.getPositions());
+          }
+          readerStack.push(new IdxxBox(list));
+        }
       }
     }
     return RESULT_CONTINUE;
@@ -570,11 +565,11 @@ public class AviExtractor implements Extractor {
 
     @Override
     public boolean read(@NonNull ExtractorInput input) throws IOException {
-      if (isComplete()) {
-        return true;
-      }
       if (size == Long.MIN_VALUE) {
         size = input.getLength();
+      }
+      if (isComplete()) {
+        return true;
       }
       final int chunkId;
       if (headerPeeker.peakSafe(input)) {
@@ -613,6 +608,7 @@ public class AviExtractor implements Extractor {
             addMovi(new MoviBox(position + PARENT_HEADER_SIZE, size - 4));
             if (riffType == AVIX || getIndexBoxList().size() > 0) {
               //If we have OpenDML Indexes exit early and skip the IDX1 Index
+              position = getEnd();
               return true;
             }
           } else if (type == ListBox.TYPE_HDRL){
