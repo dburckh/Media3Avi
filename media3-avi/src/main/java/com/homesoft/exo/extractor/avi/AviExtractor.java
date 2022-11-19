@@ -144,6 +144,8 @@ public class AviExtractor implements Extractor {
    * Build and set the SeekMap based on the indices
    */
   private void buildSeekMap() {
+    fixTimings();
+
     final StreamHandler videoTrack = getVideoTrack();
     if (videoTrack == null) {
       setSeekMap(new SeekMap.Unseekable(getDuration()));
@@ -177,8 +179,6 @@ public class AviExtractor implements Extractor {
             videoTrack.getChunkIndex().getChunkCount(), seekOffsets, seekIndexArrays);
 
     i("Video chunks=" + videoChunkIndex.getChunkCount() + " us=" + seekMap.getDurationUs());
-
-    fixTimings();
 
     setSeekMap(seekMap);
   }
@@ -322,28 +322,21 @@ public class AviExtractor implements Extractor {
 
   void fixTimings() {
     for (final StreamHandler streamHandler : streamHandlers) {
-      final long streamDurationUs = streamHandler.getClock().durationUs;
       final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
-      final int chunks = chunkIndex.getChunkCount();
+      final int indexChunkCount = chunkIndex.getChunkCount();
+      final ChunkClock chunkClock = streamHandler.getClock();
+
       if (streamHandler.isAudio()) {
-        i("Audio #" + streamHandler.getId() + " chunks: " + chunks + " us=" + streamDurationUs +
-            " size=" + streamHandler.size);
-        final ChunkClock linearClock = streamHandler.getClock();
+        final long streamDurationUs = streamHandler.getClock().durationUs;
+        i("Audio #" + streamHandler.getId() + " chunks: " + indexChunkCount + " us=" +
+                streamDurationUs + " size=" + streamHandler.size);
         //If the audio track duration is off from the video by >5 % recalc using video
         if ((streamDurationUs - durationUs) / (float)durationUs > .05f) {
-          w("Audio #" + streamHandler.getId() + " duration is off using videoDuration");
-          linearClock.setDuration(durationUs);
+          w("Audio #" + streamHandler.getId() + " duration is off, using videoDuration");
+          chunkClock.setDuration(durationUs);
         }
-        linearClock.setChunks(chunks);
-        final int keyFrameCount = chunkIndex.getKeyFrameCount();
-        if (!chunkIndex.isAllKeyFrames()) {
-          w("Audio is not all key frames chunks=" + chunks + " keyFrames=" +
-                  keyFrameCount);
-        }
-      } else if (streamHandler.isVideo()) {
-        final ChunkClock clock = streamHandler.getClock();
-        clock.setChunks(chunks);
       }
+      chunkClock.setChunks(indexChunkCount);
     }
   }
 
@@ -424,7 +417,7 @@ public class AviExtractor implements Extractor {
     output.endTracks();
   }
 
-  private int setPosition(@NonNull ExtractorInput input, @NonNull PositionHolder positionHolder, long position) throws IOException {
+  private int maybeSetPosition(@NonNull ExtractorInput input, @NonNull PositionHolder positionHolder, long position) throws IOException {
     final long skip = position - input.getPosition();
     if (skip == 0) {
       return RESULT_CONTINUE;
@@ -444,9 +437,9 @@ public class AviExtractor implements Extractor {
       return RESULT_END_OF_INPUT;
     }
     if (reader.getPosition() != input.getPosition()) {
-      final int op = setPosition(input, positionHolder, reader.getPosition());
+      final int op = maybeSetPosition(input, positionHolder, reader.getPosition());
       if (op == RESULT_SEEK) {
-        i("Seek from: " + input.getPosition() + " for " + reader);
+        //i("Seek from: " + input.getPosition() + " for " + reader);
       }
       return op;
     }
