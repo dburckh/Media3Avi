@@ -29,7 +29,7 @@ ExoPlayer exoPlayer = new ExoPlayer.Builder(context)
     .build();
 ```
 
-###Change Log
+### Change Log
 2.0
 - OpenDML Support
   - RIFF-AVIX extension
