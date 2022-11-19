@@ -11,9 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+//Adapted from Media3 constants.gradle
 project.ext {
-    releaseVersion = '1.0.0-beta01'
-    releaseVersionCode = 1_000_000_1_01
+    releaseVersion = '2.0'
+    releaseVersionCode = 2_000_000_0_00
     minSdkVersion = 21
     appTargetSdkVersion = 29
     // Upgrading this requires [Internal ref: b/193254928] to be fixed, or some
