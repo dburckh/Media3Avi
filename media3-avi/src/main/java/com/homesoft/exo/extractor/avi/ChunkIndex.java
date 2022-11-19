@@ -71,10 +71,7 @@ public class ChunkIndex {
     /**
      * Used for creating the SeekMap
      * @param seekPositions array of positions, usually key frame positions of another stream
-     * @return the chunk indices at or before the position.
-     *         Special Cases:
-     *         0 if before this stream has not started
-     *         chunkCount - 1 if there are no more chunks in the stream
+     * @return the chunk indices after the seekPosition (next frame).
      */
     public int[] getIndices(final long[] seekPositions) {
         checkReleased();
@@ -83,7 +80,7 @@ public class ChunkIndex {
         int i = 0;
         final int maxI = getChunkCount() - 1;
         for (int p=0;p<seekPositions.length;p++) {
-            while (i < maxI && positions[i + 1] < seekPositions[p]) {
+            while (i < maxI && positions[i] < seekPositions[p]) {
                 i++;
             }
             work[p] = i;

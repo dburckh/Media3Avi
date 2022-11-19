@@ -164,14 +164,14 @@ public class AviExtractor implements Extractor {
     int[][] seekIndexArrays = new int[streamHandlers.length][];
     seekIndexArrays[videoTrackId] = seekKeyFrames;
     for (final StreamHandler streamHandler : streamHandlers) {
-      if (streamHandler != null) {
-        final int id = streamHandler.getId();
-        if (id != videoTrackId) {
-          final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
-          seekIndexArrays[id] = chunkIndex.getIndices(seekOffsets);
-          chunkIndex.release();
-        }
+      final int id = streamHandler.getId();
+      if (id != videoTrackId) {
+        final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
+        seekIndexArrays[id] = chunkIndex.getIndices(seekOffsets);
+        chunkIndex.release();
       }
+      //Special case: first index is always 0 for seek(0,0) case
+      seekIndexArrays[id][0] = 0;
     }
     //Always use the first chunk position in case of leading audio
     seekOffsets[0] = getFirstChunkPosition();
