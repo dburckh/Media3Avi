@@ -123,195 +123,195 @@ track 1:
     sampleRate = 48000
     pcmEncoding = 2
   sample 0:
-    time = 2900000
+    time = 2920000
     flags = 1
     data = length 3840, hash CCB305EC
   sample 1:
-    time = 2920000
+    time = 2940000
     flags = 1
     data = length 3840, hash 9719E470
   sample 2:
-    time = 2940000
+    time = 2960000
     flags = 1
     data = length 3840, hash ED9D4561
   sample 3:
-    time = 2960000
+    time = 2980000
     flags = 1
     data = length 3840, hash A4922C61
   sample 4:
-    time = 2980000
+    time = 3000000
     flags = 1
     data = length 3840, hash 37C73F3B
   sample 5:
-    time = 3000000
+    time = 3020000
     flags = 1
     data = length 3840, hash 2D4110DF
   sample 6:
-    time = 3020000
+    time = 3040000
     flags = 1
     data = length 3840, hash 799F1F90
   sample 7:
-    time = 3040000
+    time = 3060000
     flags = 1
     data = length 3840, hash 98DCC9DF
   sample 8:
-    time = 3060000
+    time = 3080000
     flags = 1
     data = length 3840, hash 6B1069
   sample 9:
-    time = 3080000
+    time = 3100000
     flags = 1
     data = length 3840, hash 9E755371
   sample 10:
-    time = 3100000
+    time = 3120000
     flags = 1
     data = length 3840, hash 27E579EF
   sample 11:
-    time = 3120000
+    time = 3140000
     flags = 1
     data = length 3840, hash A1F0B189
   sample 12:
-    time = 3140000
+    time = 3160000
     flags = 1
     data = length 3840, hash 3B68B8B7
   sample 13:
-    time = 3160000
+    time = 3180000
     flags = 1
     data = length 3840, hash 81D27BDC
   sample 14:
-    time = 3180000
+    time = 3200000
     flags = 1
     data = length 3840, hash 99CD9B0E
   sample 15:
-    time = 3200000
+    time = 3220000
     flags = 1
     data = length 3840, hash 70E69FF8
   sample 16:
-    time = 3220000
+    time = 3240000
     flags = 1
     data = length 3840, hash 2F4E3814
   sample 17:
-    time = 3240000
+    time = 3260000
     flags = 1
     data = length 3840, hash D6D76B8C
   sample 18:
-    time = 3260000
+    time = 3280000
     flags = 1
     data = length 3840, hash 59F6EE94
   sample 19:
-    time = 3280000
+    time = 3300000
     flags = 1
     data = length 3840, hash E833BE42
   sample 20:
-    time = 3300000
+    time = 3320000
     flags = 1
     data = length 3840, hash 25DCE187
   sample 21:
-    time = 3320000
+    time = 3340000
     flags = 1
     data = length 3840, hash 4E46CC99
   sample 22:
-    time = 3340000
+    time = 3360000
     flags = 1
     data = length 3840, hash 651BE1AA
   sample 23:
-    time = 3360000
+    time = 3380000
     flags = 1
     data = length 3840, hash DB77C66B
   sample 24:
-    time = 3380000
+    time = 3400000
     flags = 1
     data = length 3840, hash 183C9403
   sample 25:
-    time = 3400000
+    time = 3420000
     flags = 1
     data = length 3840, hash 131ECC65
   sample 26:
-    time = 3420000
+    time = 3440000
     flags = 1
     data = length 3840, hash 2E0E9138
   sample 27:
-    time = 3440000
+    time = 3460000
     flags = 1
     data = length 3840, hash 8F726EFC
   sample 28:
-    time = 3460000
+    time = 3480000
     flags = 1
     data = length 3840, hash 274EFF2D
   sample 29:
-    time = 3480000
+    time = 3500000
     flags = 1
     data = length 3840, hash 29F8E228
   sample 30:
-    time = 3500000
+    time = 3520000
     flags = 1
     data = length 3840, hash 52CFD7A3
   sample 31:
-    time = 3520000
+    time = 3540000
     flags = 1
     data = length 3840, hash 5B28B772
   sample 32:
-    time = 3540000
+    time = 3560000
     flags = 1
     data = length 3840, hash 4724BCB8
   sample 33:
-    time = 3560000
+    time = 3580000
     flags = 1
     data = length 3840, hash 15FAECE
   sample 34:
-    time = 3580000
+    time = 3600000
     flags = 1
     data = length 3840, hash 9287E457
   sample 35:
-    time = 3600000
+    time = 3620000
     flags = 1
     data = length 3840, hash 7C0846A1
   sample 36:
-    time = 3620000
+    time = 3640000
     flags = 1
     data = length 3840, hash C5473107
   sample 37:
-    time = 3640000
+    time = 3660000
     flags = 1
     data = length 3840, hash EE0555B2
   sample 38:
-    time = 3660000
+    time = 3680000
     flags = 1
     data = length 3840, hash B46FB947
   sample 39:
-    time = 3680000
+    time = 3700000
     flags = 1
     data = length 3840, hash 360AC7BC
   sample 40:
-    time = 3700000
+    time = 3720000
     flags = 1
     data = length 3840, hash 40867E65
   sample 41:
-    time = 3720000
+    time = 3740000
     flags = 1
     data = length 3840, hash D1427073
   sample 42:
-    time = 3740000
+    time = 3760000
     flags = 1
     data = length 3840, hash AE4C3EB5
   sample 43:
-    time = 3760000
+    time = 3780000
     flags = 1
     data = length 3840, hash 986FFD50
   sample 44:
-    time = 3780000
+    time = 3800000
     flags = 1
     data = length 3840, hash 9DD57883
   sample 45:
-    time = 3800000
+    time = 3820000
     flags = 1
     data = length 3840, hash 46B1E0B2
   sample 46:
-    time = 3820000
+    time = 3840000
     flags = 1
     data = length 3840, hash 3F1E1566
   sample 47:
-    time = 3840000
+    time = 3860000
     flags = 1
     data = length 3840, hash 223FAB93
 tracksEnded = true
