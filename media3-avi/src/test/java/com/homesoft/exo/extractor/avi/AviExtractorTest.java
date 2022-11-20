@@ -43,117 +43,49 @@ import java.util.function.Predicate;
 @RunWith(AndroidJUnit4.class)
 public class AviExtractorTest {
 
-//  @Test
-//  public void init_givenFakeExtractorOutput() {
-//    AviExtractor aviExtractor = new AviExtractor();
-//    FakeExtractorOutput output = new FakeExtractorOutput();
-//    aviExtractor.init(output);
-//
-//    Assert.assertEquals(AviExtractor.STATE_READ_TRACKS, aviExtractor.state);
-//    Assert.assertEquals(output, aviExtractor.output);
-//  }
-//
-//
-//  private boolean sniff(ByteBuffer byteBuffer) {
-//    AviExtractor aviExtractor = new AviExtractor();
-//    FakeExtractorInput input = new FakeExtractorInput.Builder()
-//        .setData(byteBuffer.array()).build();
-//    try {
-//      return aviExtractor.sniff(input);
-//    } catch (IOException e) {
-//      Assert.fail(e.getMessage());
-//      return false;
-//    }
-//  }
-//
-//  @Test
-//  public void peek_givenTooFewByte() {
-//    Assert.assertFalse(sniff(AviExtractor.allocate(AviExtractor.PEEK_BYTES - 1)));
-//  }
-//
-//  @Test
-//  public void peek_givenAllZero() {
-//    ByteBuffer byteBuffer = AviExtractor.allocate(AviExtractor.PEEK_BYTES);
-//    Assert.assertFalse(sniff(byteBuffer));
-//  }
-//
-//  @Test
-//  public void peek_givenOnlyRiff() {
-//    ByteBuffer byteBuffer = AviExtractor.allocate(AviExtractor.PEEK_BYTES);
-//    byteBuffer.putInt(AviExtractor.RIFF);
-//    Assert.assertFalse(sniff(byteBuffer));
-//  }
-//
-//  @Test
-//  public void peek_givenOnlyRiffAvi_() {
-//    ByteBuffer byteBuffer = AviExtractor.allocate(AviExtractor.PEEK_BYTES);
-//    byteBuffer.putInt(AviExtractor.RIFF);
-//    byteBuffer.putInt(128);
-//    byteBuffer.putInt(AviExtractor.AVI_);
-//    Assert.assertFalse(sniff(byteBuffer));
-//  }
-//
-//  @Test
-//  public void peek_givenOnlyRiffAvi_List() {
-//    ByteBuffer byteBuffer = AviExtractor.allocate(AviExtractor.PEEK_BYTES);
-//    byteBuffer.putInt(AviExtractor.RIFF);
-//    byteBuffer.putInt(128);
-//    byteBuffer.putInt(AviExtractor.AVI_);
-//    byteBuffer.putInt(ListBox.LIST);
-//    Assert.assertFalse(sniff(byteBuffer));
-//  }
-//
-//  @Test
-//  public void peek_givenOnlyRiffAvi_ListHdrl() {
-//    ByteBuffer byteBuffer = AviExtractor.allocate(AviExtractor.PEEK_BYTES);
-//    byteBuffer.putInt(AviExtractor.RIFF);
-//    byteBuffer.putInt(128);
-//    byteBuffer.putInt(AviExtractor.AVI_);
-//    byteBuffer.putInt(ListBox.LIST);
-//    byteBuffer.putInt(64);
-//    byteBuffer.putInt(ListBox.TYPE_HDRL);
-//    Assert.assertFalse(sniff(byteBuffer));
-//  }
-//
-//  @Test
-//  public void peek_givenOnlyRiffAvi_ListHdrlAvih() {
-//    final ByteBuffer byteBuffer = DataHelper.getRiffHeader(AviExtractor.PEEK_BYTES, 128);
-//    Assert.assertTrue(sniff(byteBuffer));
-//  }
+  private boolean sniff(ByteBuffer byteBuffer) {
+    AviExtractor aviExtractor = new AviExtractor();
+    FakeExtractorInput input = new FakeExtractorInput.Builder()
+        .setData(byteBuffer.array()).build();
+    try {
+      return aviExtractor.sniff(input);
+    } catch (IOException e) {
+      Assert.fail(e.getMessage());
+      return false;
+    }
+  }
+
+  @Test
+  public void peek_givenTooFewByte() {
+    Assert.assertFalse(sniff(AviExtractor.allocate(AviExtractor.PEEK_BYTES - 1)));
+  }
+
+  @Test
+  public void peek_givenAllZero() {
+    ByteBuffer byteBuffer = AviExtractor.allocate(AviExtractor.PEEK_BYTES);
+    Assert.assertFalse(sniff(byteBuffer));
+  }
+
+  @Test
+  public void peek_givenOnlyRiff() {
+    ByteBuffer byteBuffer = AviExtractor.allocate(AviExtractor.PEEK_BYTES);
+    byteBuffer.putInt(AviExtractor.RIFF);
+    Assert.assertFalse(sniff(byteBuffer));
+  }
+
+  @Test
+  public void peek_givenOnlyRiffAvi_() {
+    ByteBuffer byteBuffer = AviExtractor.allocate(AviExtractor.PEEK_BYTES);
+    byteBuffer.putInt(AviExtractor.RIFF);
+    byteBuffer.putInt(128);
+    byteBuffer.putInt(AviExtractor.AVI_);
+    Assert.assertFalse(sniff(byteBuffer));
+  }
 
   @Test
   public void toString_givenKnownString() {
     final int riff = 'R' | ('I' << 8) | ('F' << 16) | ('F' << 24);
     Assert.assertEquals("RIFF", AviExtractor.toString(riff));
-  }
-
-  @Test
-  public void alignPosition_givenOddPosition() {
-    Assert.assertEquals(2, AviExtractor.alignPosition(1));
-  }
-
-  @Test
-  public void alignPosition_givenEvenPosition() {
-    Assert.assertEquals(2, AviExtractor.alignPosition(2));
-  }
-
-  @Test
-  public void alignInput_givenOddPosition() throws IOException {
-    final FakeExtractorInput fakeExtractorInput = new FakeExtractorInput.Builder().
-        setData(new byte[16]).build();
-    fakeExtractorInput.setPosition(1);
-    AviExtractor.alignInput(fakeExtractorInput);
-    Assert.assertEquals(2, fakeExtractorInput.getPosition());
-  }
-
-  @Test
-
-  public void alignInput_givenEvenPosition() throws IOException {
-    final FakeExtractorInput fakeExtractorInput = new FakeExtractorInput.Builder().
-        setData(new byte[16]).build();
-    fakeExtractorInput.setPosition(4);
-    AviExtractor.alignInput(fakeExtractorInput);
-    Assert.assertEquals(4, fakeExtractorInput.getPosition());
   }
 
   @Test
@@ -196,40 +128,6 @@ public class AviExtractorTest {
   }
 
 //  @Test
-//  public void readIdx1_given9secsAv() throws IOException {
-//    final AviExtractor aviExtractor = new AviExtractor();
-//    final FakeExtractorOutput fakeExtractorOutput = new FakeExtractorOutput();
-//    aviExtractor.init(fakeExtractorOutput);
-//    final int secs = 9;
-//    final int keyFrameRate = 3 * DataHelper.FPS; // Keyframe every 3 seconds
-//    final int keyFrames = secs * DataHelper.FPS / keyFrameRate;
-//    final ByteBuffer idx1 = DataHelper.getIndex(secs, keyFrameRate);
-//    final StreamHandler videoTrack = DataHelper.getVideoChunkHandler(secs);
-//    final StreamHandler audioTrack = DataHelper.getAudioChunkHandler(secs);
-//    aviExtractor.setChunkHandlers(new StreamHandler[]{videoTrack, audioTrack});
-//    aviExtractor.setAviHeader(DataHelper.createAviHeaderBox());
-//    aviExtractor.state = AviExtractor.STATE_READ_IDX1;
-//    aviExtractor.setMovi(DataHelper.MOVI_OFFSET, 128*1024);
-//
-//    final ByteBuffer idx1Box = AviExtractor.allocate(idx1.capacity() + 8);
-//    idx1Box.putInt(AviExtractor.IDX1);
-//    idx1Box.putInt(idx1.capacity());
-//    idx1.clear();
-//    idx1Box.put(idx1);
-//    final FakeExtractorInput fakeExtractorInput = new FakeExtractorInput.Builder()
-//        .setData(idx1Box.array()).build();
-//    //aviExtractor.readIdx1(fakeExtractorInput, (int) fakeExtractorInput.getLength());
-//    final PositionHolder positionHolder = new PositionHolder();
-//    aviExtractor.read(fakeExtractorInput, positionHolder);
-//
-//    final AviSeekMap aviSeekMap = aviExtractor.aviSeekMap;
-//    assertIdx1(aviSeekMap, videoTrack, keyFrames, keyFrameRate);
-//
-//    Assert.assertEquals(AviExtractor.STATE_READ_CHUNKS, aviExtractor.state);
-//    Assert.assertEquals(DataHelper.MOVI_OFFSET + 4, positionHolder.position);
-//  }
-//
-//  @Test
 //  public void readIdx1_givenNoVideo() throws IOException {
 //    final AviExtractor aviExtractor = new AviExtractor();
 //    final FakeExtractorOutput fakeExtractorOutput = new FakeExtractorOutput();
@@ -244,45 +142,6 @@ public class AviExtractorTest {
 //        .setData(idx1.array()).build();
 //    aviExtractor.parseIdx1(fakeExtractorInput, (int) fakeExtractorInput.getLength());
 //    Assert.assertTrue(fakeExtractorOutput.seekMap instanceof SeekMap.Unseekable);
-//  }
-//
-//  @Test
-//  public void readIdx1_givenJunkInIndex() throws IOException {
-//    final AviExtractor aviExtractor = new AviExtractor();
-//    aviExtractor.setAviHeader(DataHelper.createAviHeaderBox());
-//    aviExtractor.setMovi(DataHelper.MOVI_OFFSET, 128*1024);
-//    final FakeExtractorOutput fakeExtractorOutput = new FakeExtractorOutput();
-//    aviExtractor.init(fakeExtractorOutput);
-//
-//    final int secs = 9;
-//    final int keyFrameRate = 3 * DataHelper.FPS; // Keyframe every 3 seconds
-//    final int keyFrames = secs * DataHelper.FPS / keyFrameRate;
-//    final ByteBuffer idx1 = DataHelper.getIndex(9, keyFrameRate);
-//    // Add JUNK(16) + IDX1 header(8)
-//    final ByteBuffer junk = AviExtractor.allocate(idx1.capacity() + 16 + 8);
-//    junk.putInt(AviExtractor.JUNK);
-//    junk.putInt(8);
-//    //8 bytes of junk data
-//    junk.putInt(0);
-//    junk.putInt(0);
-//    idx1.flip();
-//    junk.putInt(AviExtractor.IDX1);
-//    junk.putInt(idx1.remaining());
-//    junk.put(idx1);
-//    final StreamHandler videoTrack = DataHelper.getVideoChunkHandler(secs);
-//    final StreamHandler audioTrack = DataHelper.getAudioChunkHandler(secs);
-//    aviExtractor.setChunkHandlers(new StreamHandler[]{videoTrack, audioTrack});
-//
-//    final FakeExtractorInput fakeExtractorInput = new FakeExtractorInput.Builder().
-//        setData(junk.array()).build();
-//    aviExtractor.state = AviExtractor.STATE_READ_IDX1;
-//    //Read the JUNK
-//    aviExtractor.read(fakeExtractorInput, new PositionHolder());
-//    //Skip the JUNK
-//    aviExtractor.read(fakeExtractorInput, new PositionHolder());
-//    //Read IDX1
-//    aviExtractor.read(fakeExtractorInput, new PositionHolder());
-//    assertIdx1(aviExtractor.aviSeekMap, videoTrack, keyFrames, keyFrameRate);
 //  }
 //
 //  @Test
@@ -314,64 +173,7 @@ public class AviExtractorTest {
 //    final FakeExtractorOutput fakeExtractorOutput = (FakeExtractorOutput) aviExtractor.output;
 //    Assert.assertTrue(fakeExtractorOutput.seekMap instanceof SeekMap.Unseekable);
 //  }
-//
-//  @Test
-//  public void readIdx1_givenBadOffset() throws IOException {
-//    final AviExtractor aviExtractor = setupVideoAviExtractor();
-//    final int secs = 4;
-//    final int indexOffset =  (int)aviExtractor.getMoviOffset() + 4;
-//    final ByteBuffer idx1 = DataHelper.getIndex(secs, 1, indexOffset);
-//
-//    final FakeExtractorInput fakeExtractorInput = new FakeExtractorInput.Builder().
-//        setData(idx1.array()).build();
-//    aviExtractor.parseIdx1(fakeExtractorInput, (int) fakeExtractorInput.getLength());
-//    Assert.assertEquals(indexOffset, aviExtractor.aviSeekMap.getSeekPoints(0L).first.position);
-//  }
-//
-//  @Test
-//  public void readHeaderList_givenBadHeader() throws IOException {
-//    final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(new byte[32]).build();
-//    Assert.assertNull(AviExtractor.readHeaderList(input));
-//  }
-//
-//  @Test
-//  public void readHeaderList_givenNoHeaderList() throws IOException {
-//    final ByteBuffer byteBuffer = DataHelper.getRiffHeader(88, 0x44);
-//    byteBuffer.putInt(0x14, ListBox.TYPE_STRL); //Overwrite header list with stream list
-//    final FakeExtractorInput input = new FakeExtractorInput.Builder().
-//        setData(byteBuffer.array()).build();
-//    Assert.assertNull(AviExtractor.readHeaderList(input));
-//  }
-//
-//  @Test
-//  public void readHeaderList_givenEmptyHeaderList() throws IOException {
-//    final ByteBuffer byteBuffer = DataHelper.getRiffHeader(88, 0x44);
-//    byteBuffer.putInt(AviHeaderBox.LEN);
-//    byteBuffer.put(DataHelper.createAviHeader());
-//    final FakeExtractorInput input = new FakeExtractorInput.Builder().
-//        setData(byteBuffer.array()).build();
-//    final ListBox listBox = AviExtractor.readHeaderList(input);
-//    Assert.assertEquals(1, listBox.getChildren().size());
-//
-//    Assert.assertTrue(listBox.getChildren().get(0) instanceof AviHeaderBox);
-//  }
-//
-//  @Test
-//  public void findMovi_givenMoviListAndIndex() throws IOException {
-//    final AviExtractor aviExtractor = new AviExtractor();
-//    aviExtractor.setAviHeader(DataHelper.createAviHeaderBox());
-//    final FakeExtractorOutput fakeExtractorOutput = new FakeExtractorOutput();
-//    aviExtractor.init(fakeExtractorOutput);
-//
-//    ByteBuffer byteBuffer = AviExtractor.allocate(12);
-//    byteBuffer.putInt(ListBox.LIST);
-//    byteBuffer.putInt(64*1024);
-//    byteBuffer.putInt(AviExtractor.MOVI);
-//    final ExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array()).build();
-//    aviExtractor.findMovi(input, new PositionHolder());
-//    Assert.assertEquals(aviExtractor.state, AviExtractor.STATE_READ_IDX1);
-//  }
-//
+
 //  @Test
 //  public void findMovi_givenMoviListAndNoIndex() throws IOException {
 //    final AviExtractor aviExtractor = new AviExtractor();
@@ -392,22 +194,7 @@ public class AviExtractorTest {
 //    Assert.assertTrue(fakeExtractorOutput.seekMap instanceof SeekMap.Unseekable);
 //  }
 //
-//  @Test
-//  public void findMovi_givenJunk() throws IOException {
-//    final AviExtractor aviExtractor = new AviExtractor();
-//    aviExtractor.setAviHeader(DataHelper.createAviHeaderBox());
-//    final FakeExtractorOutput fakeExtractorOutput = new FakeExtractorOutput();
-//    aviExtractor.init(fakeExtractorOutput);
-//
-//    ByteBuffer byteBuffer = AviExtractor.allocate(12);
-//    byteBuffer.putInt(AviExtractor.JUNK);
-//    byteBuffer.putInt(64*1024);
-//    final ExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array()).build();
-//    final PositionHolder positionHolder = new PositionHolder();
-//    aviExtractor.findMovi(input, positionHolder);
-//    Assert.assertEquals(64 * 1024 + 8, positionHolder.position);
-//  }
-//
+
   static AviExtractor setupVideoAviExtractor() {
     final AviExtractor aviExtractor = new AviExtractor();
     //PARENT_HEADER_SIZE is not a valid offset, but makes the tests easier
@@ -480,26 +267,7 @@ public class AviExtractorTest {
 //    Assert.assertEquals(24, fakeTrackOutput.getSampleData(0).length);
 //  }
 //
-//  @Test
-//  public void seek_givenPosition0() throws IOException {
-//    final AviExtractor aviExtractor = setupVideoAviExtractor();
-//    final StreamHandler streamHandler = aviExtractor.getVideoTrack();
-//    aviExtractor.setChunkHandler(streamHandler);
-//    streamHandler.getClock().setIndex(10);
-//
-//    aviExtractor.seek(0L, 0L);
-//
-//    Assert.assertNull(aviExtractor.getStreamHandler());
-//    Assert.assertEquals(0, streamHandler.getClock().getIndex());
-//    Assert.assertEquals(aviExtractor.state, AviExtractor.STATE_SEEK_START);
-//
-//
-//    final ExtractorInput input = new FakeExtractorInput.Builder().setData(new byte[0]).build();
-//    final PositionHolder positionHolder = new PositionHolder();
-//    Assert.assertEquals(Extractor.RESULT_SEEK, aviExtractor.read(input, positionHolder));
-//    Assert.assertEquals(DataHelper.MOVI_OFFSET + 4, positionHolder.position);
-//  }
-//
+
   @Test
   public void seek_givenKeyFrame() {
     final AviExtractor aviExtractor = setupVideoAviExtractor();
@@ -606,25 +374,6 @@ public class AviExtractorTest {
     final StreamHandler streamHandler = aviExtractor.getVideoTrack();
     Assert.assertEquals(streamHandler.getClock().durationUs, streamHeaderBox.getDurationUs());
   }
-
-//  @Test
-//  public void readSamples_fragmentedChunk() throws IOException {
-//    AviExtractor aviExtractor = AviExtractorTest.setupVideoAviExtractor();
-//    final StreamHandler streamHandler = aviExtractor.getVideoTrack();
-//    final int size = 24 + 16;
-//    final ByteBuffer byteBuffer = AviExtractor.allocate(size + 8);
-//    byteBuffer.putInt(streamHandler.chunkId);
-//    byteBuffer.putInt(size);
-//
-//    final ExtractorInput chunk = new FakeExtractorInput.Builder().setData(byteBuffer.array()).
-//        setSimulatePartialReads(true).build();
-//    Assert.assertEquals(Extractor.RESULT_CONTINUE, aviExtractor.read(chunk, new PositionHolder()));
-//
-//    Assert.assertEquals(Extractor.RESULT_CONTINUE, aviExtractor.read(chunk, new PositionHolder()));
-//
-//    final FakeTrackOutput fakeTrackOutput = (FakeTrackOutput) streamHandler.trackOutput;
-//    Assert.assertEquals(size, fakeTrackOutput.getSampleData(0).length);
-//  }
 
   @Test
   public void unboundIntArray_add_givenExceedsCapacity() {
