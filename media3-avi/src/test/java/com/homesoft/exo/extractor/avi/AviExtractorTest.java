@@ -15,8 +15,10 @@
  */
 package com.homesoft.exo.extractor.avi;
 
+import static androidx.media3.extractor.Extractor.RESULT_CONTINUE;
 import static com.homesoft.exo.extractor.avi.BoxReader.CHUNK_HEADER_SIZE;
 import static com.homesoft.exo.extractor.avi.DataHelper.FIRST_CHUNK;
+import static com.homesoft.exo.extractor.avi.DataHelper.VIDEO_CHUNK_ID;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -127,6 +129,31 @@ public class AviExtractorTest {
 
   }
 
+  @Test
+  public void readMovi_givenMoviWRecList() throws IOException {
+    AviExtractor aviExtractor = setupVideoAviExtractor();
+    final ByteBuffer byteBuffer = AviExtractor.allocate(2048);
+    final AviExtractor.MoviBox box = aviExtractor.moviList.get(0);
+    final int start = (int)box.getStart();
+    byteBuffer.position(start);
+    DataHelper.appendChunk(byteBuffer, VIDEO_CHUNK_ID, 32);
+    //Add rec LIST
+    byteBuffer.putInt(ListBox.LIST);
+    byteBuffer.putInt(4 + CHUNK_HEADER_SIZE + 64 + CHUNK_HEADER_SIZE + 96);
+    byteBuffer.putInt(AviExtractor.REC_);
+    //Add chunks to rec LIST
+    DataHelper.appendChunk(byteBuffer, VIDEO_CHUNK_ID, 64);
+    DataHelper.appendChunk(byteBuffer, VIDEO_CHUNK_ID, 96);
+
+    final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array()).build();
+    readUntil(aviExtractor, input, extract-> box.getPosition() == byteBuffer.position() && extract.readerStack.size() == 1);
+    final StreamHandler streamHandler = aviExtractor.getStreamHandler(VIDEO_CHUNK_ID);
+    FakeTrackOutput output = (FakeTrackOutput) streamHandler.trackOutput;
+    Assert.assertEquals(3, output.getSampleCount());
+    Assert.assertEquals(32, output.getSampleData(0).length);
+    Assert.assertEquals(64, output.getSampleData(1).length);
+    Assert.assertEquals(96, output.getSampleData(2).length);
+  }
 //  @Test
 //  public void readIdx1_givenNoVideo() throws IOException {
 //    final AviExtractor aviExtractor = new AviExtractor();
@@ -239,11 +266,11 @@ public class AviExtractorTest {
         .build();
     input.skipFully(FIRST_CHUNK);
     final PositionHolder positionHolder = new PositionHolder();
-    Assert.assertEquals(Extractor.RESULT_CONTINUE, aviExtractor.read(input, positionHolder));
+    Assert.assertEquals(RESULT_CONTINUE, aviExtractor.read(input, positionHolder));
     Assert.assertEquals(streamHandler, aviExtractor.readerStack.peek());
     aviExtractor.read(input, positionHolder);
     Assert.assertEquals(streamHandler.getPosition(), input.getPosition());
-    Assert.assertEquals(Extractor.RESULT_CONTINUE, aviExtractor.read(input, positionHolder));
+    Assert.assertEquals(RESULT_CONTINUE, aviExtractor.read(input, positionHolder));
     Assert.assertEquals(aviExtractor.moviList.get(0), aviExtractor.readerStack.peek());
 
     final FakeTrackOutput fakeTrackOutput = (FakeTrackOutput) streamHandler.trackOutput;

@@ -42,6 +42,7 @@ public class DataHelper {
   /* package */ static final int AUDIO_ID = 1;
   /* package */ static final int MOVI_OFFSET = 4096;
   /* package */ static final int FIRST_CHUNK = PARENT_HEADER_SIZE;
+  static final int VIDEO_CHUNK_ID = 0x63643030; //00dc
 
   public static StreamHeaderBox getStreamHeader(int type, int scale, int rate, int length) {
     final ByteBuffer byteBuffer = AviExtractor.allocate(0x40);
@@ -112,6 +113,12 @@ public class DataHelper {
     byteBuffer.put((byte) 1);
     byteBuffer.put(nalType);
     return byteBuffer;
+  }
+
+  public static void appendChunk(ByteBuffer byteBuffer, int chunkId, int size) {
+    byteBuffer.putInt(chunkId);
+    byteBuffer.putInt(size);
+    byteBuffer.position(byteBuffer.position() + size);
   }
 
   public static StreamHandler getVideoChunkHandler(int sec) {

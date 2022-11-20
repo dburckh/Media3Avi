@@ -648,9 +648,11 @@ public class AviExtractor implements Extractor {
       if (streamHandler != null) {
         streamHandler.setPosition(position + CHUNK_HEADER_SIZE, headerPeeker.getSize());
         push(streamHandler);
-      } else if (chunkId == REC_) {
-        position += 8;
-        return false;
+      } else if (chunkId == ListBox.LIST) {
+        final int type = headerPeeker.peakType(input);
+        if (type == REC_) {
+          return advancePosition(PARENT_HEADER_SIZE);
+        }
       }
       return advancePosition();
     }
