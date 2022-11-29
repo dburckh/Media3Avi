@@ -24,8 +24,6 @@ public class PicCountClock extends ChunkClock {
   //The frame as a calculated from the picCount
   private int picIndex;
   private int lastPicCount;
-  //Largest picFrame, used when we hit an I frame
-  private int maxPicIndex =-1;
   private int maxPicCount;
   private int step = 2;
   private int posHalf;
@@ -60,9 +58,6 @@ public class PicCountClock extends ChunkClock {
     }
     picIndex += delta / step;
     lastPicCount = picCount;
-    if (maxPicIndex < picIndex) {
-      maxPicIndex = picIndex;
-    }
   }
 
   /**
@@ -70,7 +65,7 @@ public class PicCountClock extends ChunkClock {
    */
   public void syncIndexes() {
     lastPicCount = 0;
-    maxPicIndex = picIndex = getIndex();
+    picIndex = getIndex();
   }
 
   @Override
