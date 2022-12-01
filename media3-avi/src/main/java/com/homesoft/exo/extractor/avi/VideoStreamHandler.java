@@ -24,7 +24,8 @@ public class VideoStreamHandler extends StreamHandler {
     }
 
     protected boolean isKeyFrame() {
-        return allKeyFrames || Arrays.binarySearch(positions, readEnd - readSize) >= 0;
+        // -8 because the position array includes the header, but the read skips it.
+        return allKeyFrames || Arrays.binarySearch(positions, readEnd - readSize - 8) >= 0;
     }
 
     protected void advanceTime() {
@@ -34,7 +35,7 @@ public class VideoStreamHandler extends StreamHandler {
     @Override
     protected void sendMetadata(int size) {
         if (size > 0) {
-            System.out.println("VideoStream: " + getId() + " key: " + isKeyFrame() + " Us: " + getTimeUs() + " size: " + size);
+            System.out.println("VideoStream: " + getId() + " Us: " + getTimeUs() + " size: " + size + " key: " + isKeyFrame());
             trackOutput.sampleMetadata(
                     getTimeUs(), (isKeyFrame() ? C.BUFFER_FLAG_KEY_FRAME : 0), size, 0, null);
         }

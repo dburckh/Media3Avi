@@ -129,6 +129,16 @@ public class AviExtractor implements Extractor {
    * Build and set the SeekMap based on the indices
    */
   private void buildSeekMap() {
+    for (final StreamHandler streamHandler : streamHandlers) {
+      if (streamHandler instanceof AudioStreamHandler) {
+        long streamDurationUs = streamHandler.getDurationUs();
+        if ((streamDurationUs - durationUs) / (float)durationUs > .05f) {
+          w("Audio #" + streamHandler.getId() + " duration is off, using videoDuration");
+          ((AudioStreamHandler)streamHandler).setDurationUs(durationUs);
+        }
+      }
+    }
+
     final StreamHandler seekStreamHandler = getSeekStreamHandler();
     if (seekStreamHandler == null) {
       setSeekMap(new SeekMap.Unseekable(getDuration()));

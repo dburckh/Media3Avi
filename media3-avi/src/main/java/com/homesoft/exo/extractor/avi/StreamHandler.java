@@ -33,8 +33,6 @@ public abstract class StreamHandler implements IReader {
   public static final int TYPE_VIDEO = ('d' << 16) | ('c' << 24);
   public static final int TYPE_AUDIO = ('w' << 16) | ('b' << 24);
 
-  final long durationUs;
-
   @NonNull
   final TrackOutput trackOutput;
 
@@ -42,6 +40,8 @@ public abstract class StreamHandler implements IReader {
    * The chunk id as it appears in the index and the movi
    */
   final int chunkId;
+
+  long durationUs;
 
   /**
    * Current time in the stream
@@ -110,6 +110,10 @@ public abstract class StreamHandler implements IReader {
 
   long getTimeUs() {
     return timeUs;
+  }
+
+  public long getDurationUs() {
+    return durationUs;
   }
 
   public long getPosition() {
@@ -200,7 +204,7 @@ public abstract class StreamHandler implements IReader {
     } else {
       int index = Arrays.binarySearch(times, timeUs);
       if (index < 0) {
-        index = -index - 1;
+        index = -index -1;
         if (index >= times.length) {
           index = times.length -1;
         }

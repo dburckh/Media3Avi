@@ -131,7 +131,9 @@ public class MpegAudioStreamHandler extends AudioStreamHandler {
     return false;
   }
 
-  private void reset() {
+  @Override
+  public void setTimeUs(long timeUs) {
+    super.setTimeUs(timeUs);
     scratch.reset(0);
     frameRemaining = 0;
   }

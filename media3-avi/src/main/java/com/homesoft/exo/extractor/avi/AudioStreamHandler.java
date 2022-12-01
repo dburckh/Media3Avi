@@ -19,12 +19,6 @@ public class AudioStreamHandler extends StreamHandler {
     }
 
     @Override
-    public void setTimeUs(long timeUs) {
-
-        super.setTimeUs(timeUs);
-    }
-
-    @Override
     protected void sendMetadata(int size) {
         if (size > 0) {
             System.out.println("AudioStream: " + getId() + " Us: " + getTimeUs() + " size: " + size);
@@ -45,6 +39,10 @@ public class AudioStreamHandler extends StreamHandler {
                 positions[k] = chunkIndex.getChunkPosition(c);
                 times[k] = calcTimeUs(streamBytes);
                 k++;
+                if (k == positions.length) {
+                    //We have moved beyond this streams length
+                    break;
+                }
             }
             streamBytes += chunkIndex.getChunkSize(c);
         }
@@ -59,5 +57,9 @@ public class AudioStreamHandler extends StreamHandler {
 
     public void setSeekFrames(long[] positions) {
         setSeekFrames(chunkIndex.getIndices(positions));
+    }
+
+    void setDurationUs(long durationUs) {
+        this.durationUs = durationUs;
     }
 }
