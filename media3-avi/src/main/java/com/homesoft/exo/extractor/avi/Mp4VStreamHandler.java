@@ -85,6 +85,9 @@ public class Mp4VStreamHandler extends NalStreamHandler {
         processLayerStart(nalTypeOffset);
         break;
       }
+      //TODO: Add check for vop_start_code (0xb6)
+      // @See vop_id_for_prediction_indication, vop_id_for_prediction
+
       nalTypeOffset = seekNextNal(input, nalTypeOffset);
       if (nalTypeOffset < 0) {
         break;

@@ -23,7 +23,8 @@ import java.io.IOException;
 public class MockNalStreamHandler extends NalStreamHandler {
   private boolean skip;
   public MockNalStreamHandler(int peakSize, boolean skip) {
-    super(0, new FakeTrackOutput(false), new ChunkClock(1_000_000L, 24), peakSize);
+    super(0, 1_000_000L, new FakeTrackOutput(false), peakSize);
+    frameUs = DataHelper.VIDEO_US;
     this.skip = skip;
   }
 

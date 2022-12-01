@@ -45,8 +45,10 @@ public class AvcStreamHandler extends NalStreamHandler {
   private boolean usePicOrder;
   //The frame as a calculated from the picCount
   private int picOffset;
-  private int lastPicCount;
-  private int maxPicCount;
+  @VisibleForTesting
+  int lastPicCount;
+  @VisibleForTesting
+  int maxPicCount;
   private int step = 2;
   private int posHalf;
   private int negHalf;

@@ -25,6 +25,8 @@ import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 
+import org.checkerframework.checker.units.qual.A;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -34,7 +36,8 @@ import java.util.Deque;
 
 public class DataHelper {
   /* package */ static final int FPS = 24;
-  /* package */ static final long VIDEO_US = 1_000_000L / FPS;
+  static final long US_PER_SEC = 1_000_000L;
+  /* package */ static final long VIDEO_US = US_PER_SEC / FPS;
   /* package */ static final int AUDIO_PER_VIDEO = 4;
   /* package */ static final int VIDEO_SIZE = 4096;
   /* package */ static final int AUDIO_SIZE = 256;
@@ -121,26 +124,28 @@ public class DataHelper {
     byteBuffer.position(byteBuffer.position() + size);
   }
 
-  public static StreamHandler getVideoChunkHandler(int sec) {
+  public static VideoStreamHandler getVideoChunkHandler(int sec) {
     final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
-    return new StreamHandler(0, StreamHandler.TYPE_VIDEO, fakeTrackOutput,
-        new ChunkClock(sec * 1_000_000L, sec * FPS));
+    VideoStreamHandler videoStreamHandler =  new VideoStreamHandler(0, sec * 1_000_000L, fakeTrackOutput);
+    videoStreamHandler.frameUs = VIDEO_US;
+    return videoStreamHandler;
   }
 
-  public static StreamHandler getAudioChunkHandler(int sec) {
-    final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
-    return new StreamHandler(AUDIO_ID, StreamHandler.TYPE_AUDIO, fakeTrackOutput,
-        new ChunkClock(sec * 1_000_000L, sec * FPS * AUDIO_PER_VIDEO));
-  }
+//  public static StreamHandler getAudioChunkHandler(int sec) {
+//    final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
+//    AudioStreamHandler audioStreamHandler = new AudioStreamHandler(AUDIO_ID, sec * 1_000_000L, fakeTrackOutput);
+//    audioStreamHandler.
+//        new ChunkClock(sec * 1_000_000L, sec * FPS * AUDIO_PER_VIDEO));
+//  }
 
   public static AviSeekMap getAviSeekMap() {
-    final long[] keyFrameOffsets= {MOVI_OFFSET + 4, MOVI_OFFSET + 1024};
-    final int[] videoArray = new int[2];
-    videoArray[1] = 4;
-    final int[]  audioArray = new int[2];
-    audioArray[1] = 128;
-    return new AviSeekMap(0, 100L, 8, keyFrameOffsets,
-        new int[][]{videoArray, audioArray});
+    return getAviSeekMap(getVideoChunkHandler(10));
+  }
+
+  public static AviSeekMap getAviSeekMap(StreamHandler streamHandler) {
+    streamHandler.positions = new long[]{1024, 2048};
+    streamHandler.times = new long[]{0, VIDEO_US};
+    return new AviSeekMap(streamHandler.getDurationUs(), streamHandler);
   }
 
   private static void putIndex(final ByteBuffer byteBuffer, int chunkId, int flags, int offset,

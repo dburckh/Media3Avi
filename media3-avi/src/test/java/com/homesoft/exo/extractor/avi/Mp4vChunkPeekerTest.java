@@ -38,28 +38,30 @@ public class Mp4vChunkPeekerTest {
     return DataHelper.appendNal(AviExtractor.allocate(32), Mp4VStreamHandler.SEQUENCE_START_CODE);
   }
 
+  private static Mp4VStreamHandler getStreamHandler() {
+    final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
+    final Format.Builder formatBuilder = new Format.Builder();
+    final Mp4VStreamHandler mp4vChunkPeeker = new Mp4VStreamHandler(0, 1_000_000L, fakeTrackOutput, formatBuilder);
+    mp4vChunkPeeker.frameUs = DataHelper.VIDEO_US;
+    return mp4vChunkPeeker;
+  }
+
   @Test
   public void peek_givenNoSequence() throws IOException {
     ByteBuffer byteBuffer = makeSequence();
-    final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
-    final Format.Builder formatBuilder = new Format.Builder();
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array())
-        .build();
-    final Mp4VStreamHandler mp4vChunkPeeker = new Mp4VStreamHandler(0, fakeTrackOutput,
-        new ChunkClock(1_000_000L, 24), formatBuilder);
-    mp4vChunkPeeker.peek(input, (int) input.getLength());
-    Assert.assertEquals(1f, mp4vChunkPeeker.pixelWidthHeightRatio, 0.01);
+            .build();
+    Mp4VStreamHandler mp4VStreamHandler = getStreamHandler();
+    mp4VStreamHandler.peek(input, (int) input.getLength());
+    Assert.assertEquals(1f, mp4VStreamHandler.pixelWidthHeightRatio, 0.01);
   }
 
   @Test
   public void peek_givenAspectRatio() throws IOException {
-    final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
-    final Format.Builder formatBuilder = new Format.Builder();
     final Context context = ApplicationProvider.getApplicationContext();
     final byte[] bytes = TestUtil.getByteArray(context, "media/avi/mp4v_sequence.dump");
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(bytes).build();
-    final Mp4VStreamHandler mp4vChunkPeeker = new Mp4VStreamHandler(0, fakeTrackOutput,
-        new ChunkClock(1_000_000L, 24), formatBuilder);
+    final Mp4VStreamHandler mp4vChunkPeeker = getStreamHandler();
 
     mp4vChunkPeeker.peek(input, (int) input.getLength());
     Assert.assertEquals(1.2121212, mp4vChunkPeeker.pixelWidthHeightRatio, 0.01);
@@ -82,12 +84,9 @@ public class Mp4vChunkPeekerTest {
     final byte bytes[] = bitBuffer.getBytes();
     byteBuffer.put(bytes);
 
-    final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
-    final Format.Builder formatBuilder = new Format.Builder();
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array())
         .build();
-    final Mp4VStreamHandler mp4vChunkPeeker = new Mp4VStreamHandler(0, fakeTrackOutput,
-        new ChunkClock(1_000_000L, 24), formatBuilder);
+    final Mp4VStreamHandler mp4vChunkPeeker = getStreamHandler();
     mp4vChunkPeeker.peek(input, (int) input.getLength());
     Assert.assertEquals(16f/9f, mp4vChunkPeeker.pixelWidthHeightRatio, 0.01);
   }

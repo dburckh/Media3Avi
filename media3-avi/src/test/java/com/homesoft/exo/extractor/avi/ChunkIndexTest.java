@@ -13,7 +13,7 @@ public class ChunkIndexTest {
         final int[] audioOffsets = {6, 12, 19, 33, 47, 61, 75};
         ChunkIndex chunkIndex = new ChunkIndex();
         for (int i : audioOffsets) {
-            chunkIndex.add(i, true);
+            chunkIndex.add(i, 1024, true);
         }
 
         final int[] audioIndices = chunkIndex.getIndices(VIDEO_POSITIONS);
@@ -30,7 +30,7 @@ public class ChunkIndexTest {
         ChunkIndex chunkIndex = new ChunkIndex();
         final int secs = 10;
         for (int i=0;i<secs*24;i++) {
-            chunkIndex.add(i * 3L, true);
+            chunkIndex.add(i * 3L, 1024, true);
         }
         final int[] indices = chunkIndex.getChunkSubset(
                 TimeUnit.MICROSECONDS.convert(secs, TimeUnit.SECONDS), 2);

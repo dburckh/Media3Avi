@@ -81,7 +81,7 @@ public class AviExtractorTest {
     byteBuffer.putInt(AviExtractor.RIFF);
     byteBuffer.putInt(128);
     byteBuffer.putInt(AviExtractor.AVI_);
-    Assert.assertFalse(sniff(byteBuffer));
+    Assert.assertTrue(sniff(byteBuffer));
   }
 
   @Test
@@ -111,23 +111,23 @@ public class AviExtractorTest {
     Assert.assertEquals(1, AviExtractor.getStreamId('0' | ('1' << 8) | ('d' << 16) | ('c' << 24)));
   }
 
-  private void assertIdx1(AviSeekMap aviSeekMap, StreamHandler videoTrack, int keyFrames,
-                          int keyFrameRate) {
-    Assert.assertEquals(keyFrames, videoTrack.keyFrames.length);
-
-    final int framesPerKeyFrame = 24 * 3;
-    //This indirectly verifies the number of video chunks
-    Assert.assertEquals(9 * DataHelper.FPS, videoTrack.getChunkIndex().getChunkCount());
-
-    Assert.assertEquals(2 * framesPerKeyFrame, videoTrack.keyFrames[2]);
-
-    Assert.assertEquals(2 * keyFrameRate * DataHelper.AUDIO_PER_VIDEO,
-        aviSeekMap.getSeekIndexes(DataHelper.AUDIO_ID)[2]);
-    Assert.assertEquals(DataHelper.MOVI_OFFSET + 4L + 2 * keyFrameRate * DataHelper.VIDEO_SIZE +
-            2 * keyFrameRate * DataHelper.AUDIO_SIZE * DataHelper.AUDIO_PER_VIDEO,
-        aviSeekMap.getKeyFrameOffsets(2));
-
-  }
+//  private void assertIdx1(AviSeekMap aviSeekMap, StreamHandler videoTrack, int keyFrames,
+//                          int keyFrameRate) {
+//    Assert.assertEquals(keyFrames, videoTrack.keyFrames.length);
+//
+//    final int framesPerKeyFrame = 24 * 3;
+//    //This indirectly verifies the number of video chunks
+//    Assert.assertEquals(9 * DataHelper.FPS, videoTrack.getChunkIndex().getChunkCount());
+//
+//    Assert.assertEquals(2 * framesPerKeyFrame, videoTrack.keyFrames[2]);
+//
+//    Assert.assertEquals(2 * keyFrameRate * DataHelper.AUDIO_PER_VIDEO,
+//        aviSeekMap.getSeekIndexes(DataHelper.AUDIO_ID)[2]);
+//    Assert.assertEquals(DataHelper.MOVI_OFFSET + 4L + 2 * keyFrameRate * DataHelper.VIDEO_SIZE +
+//            2 * keyFrameRate * DataHelper.AUDIO_SIZE * DataHelper.AUDIO_PER_VIDEO,
+//        aviSeekMap.getKeyFrameOffsets(2));
+//
+//  }
 
   @Test
   public void readMovi_givenMoviWRecList() throws IOException {
@@ -257,7 +257,7 @@ public class AviExtractorTest {
   @Test
   public void readSamples_completeChunk() throws IOException {
     AviExtractor aviExtractor = setupVideoAviExtractor();
-    final StreamHandler streamHandler = aviExtractor.getVideoTrack();
+    final StreamHandler streamHandler = aviExtractor.getSeekStreamHandler();
     final ByteBuffer byteBuffer = AviExtractor.allocate(FIRST_CHUNK + CHUNK_HEADER_SIZE + 24);
     byteBuffer.position(FIRST_CHUNK);
     byteBuffer.putInt(streamHandler.chunkId);
@@ -298,13 +298,11 @@ public class AviExtractorTest {
   @Test
   public void seek_givenKeyFrame() {
     final AviExtractor aviExtractor = setupVideoAviExtractor();
-    final AviSeekMap aviSeekMap = DataHelper.getAviSeekMap();
+    final AviSeekMap aviSeekMap = DataHelper.getAviSeekMap(aviExtractor.getSeekStreamHandler());
     aviExtractor.setSeekMap(aviSeekMap);
-    final StreamHandler streamHandler = aviExtractor.getVideoTrack();
-    final long position = aviSeekMap.getKeyFrameOffsets(DataHelper.AUDIO_ID);
-    aviExtractor.seek(position, 0L);
-    Assert.assertEquals(aviSeekMap.getSeekIndexes(streamHandler.getId())[1],
-        streamHandler.getClock().getIndex());
+    final StreamHandler streamHandler = aviExtractor.getSeekStreamHandler();
+    aviExtractor.seek(streamHandler.positions[1], streamHandler.times[1]);
+    Assert.assertEquals(streamHandler.getTimeUs(), streamHandler.times[1]);
   }
 
   @Test
@@ -398,8 +396,8 @@ public class AviExtractorTest {
     readUntil(aviExtractor, input, (extractor)->extractor.readerStack.size() == 1);
 
 
-    final StreamHandler streamHandler = aviExtractor.getVideoTrack();
-    Assert.assertEquals(streamHandler.getClock().durationUs, streamHeaderBox.getDurationUs());
+    final StreamHandler streamHandler = aviExtractor.getSeekStreamHandler();
+    Assert.assertEquals(streamHandler.getDurationUs(), streamHeaderBox.getDurationUs());
   }
 
   @Test
@@ -407,7 +405,7 @@ public class AviExtractorTest {
     final ChunkIndex chunkIndex = new ChunkIndex();
     final int testLen = chunkIndex.positions.length + 1;
     for (int i=0; i < testLen; i++) {
-      chunkIndex.add(i, false);
+      chunkIndex.add(i, 1024, false);
     }
 
     Assert.assertEquals(testLen, chunkIndex.getChunkCount());
