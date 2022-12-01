@@ -15,13 +15,9 @@
  */
 package com.homesoft.exo.extractor.avi;
 
-import android.util.Log;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 
-import androidx.media3.common.C;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.TrackOutput;
 
@@ -32,13 +28,12 @@ import java.util.Arrays;
  * Handles chunk data from a given stream.
  * This acts a bridge between AVI and ExoPlayer
  */
-public class StreamHandler implements IReader {
+public abstract class StreamHandler implements IReader {
 
   public static final int TYPE_VIDEO = ('d' << 16) | ('c' << 24);
   public static final int TYPE_AUDIO = ('w' << 16) | ('b' << 24);
 
-  @NonNull
-  ChunkClock clock;
+  final long durationUs;
 
   @NonNull
   final TrackOutput trackOutput;
@@ -49,21 +44,21 @@ public class StreamHandler implements IReader {
   final int chunkId;
 
   /**
-   * Secondary chunk id.  Bad muxers sometimes use uncompressed for key frames
+   * Current time in the stream
    */
-  final int chunkIdAlt;
+  protected long timeUs;
 
   /**
-   * Size total size of the stream in bytes calculated by the index
+   * Seek point variables
    */
-  int size;
+  long[] positions = new long[0];
+  long[] times = new long[0];
 
-  final ChunkIndex chunkIndex = new ChunkIndex();
+//  /**
+//   * Size total size of the stream in bytes calculated by the index
+//   */
+//  int size;
 
-  /**
-   * Ordered list of key frame chunk indexes
-   */
-  int[] keyFrames = new int[0];
 
   /**
    * Open DML IndexBox, currently we just support one, but multiple are possible
@@ -71,6 +66,9 @@ public class StreamHandler implements IReader {
    */
   @Nullable
   private IndexBox indexBox;
+
+  @NonNull
+  protected ChunkIndex chunkIndex = new ChunkIndex();
 
   /**
    * Size of the current chunk in bytes
@@ -86,8 +84,7 @@ public class StreamHandler implements IReader {
   /**
    * Get stream id in ASCII
    */
-  @VisibleForTesting
-  static int getChunkIdLower(int id) {
+  protected static int getChunkIdLower(int id) {
     int tens = id / 10;
     int ones = id % 10;
     return  ('0' + tens) | (('0' + ones) << 8);
@@ -97,15 +94,10 @@ public class StreamHandler implements IReader {
     return ((chunkId >> 8) & 0xf) + (chunkId & 0xf) * 10;
   }
 
-  StreamHandler(int id, int chunkType, @NonNull TrackOutput trackOutput, @NonNull ChunkClock clock) {
+  StreamHandler(int id, int chunkType, long durationUs, @NonNull TrackOutput trackOutput) {
     this.chunkId = getChunkIdLower(id) | chunkType;
-    this.clock = clock;
+    this.durationUs = durationUs;
     this.trackOutput = trackOutput;
-    if (isVideo()) {
-      chunkIdAlt = getChunkIdLower(id) | ('d' << 16) | ('b' << 24);
-    } else {
-      chunkIdAlt = -1;
-    }
   }
 
   /**
@@ -113,39 +105,18 @@ public class StreamHandler implements IReader {
    * @return true if this can handle the chunkId
    */
   public boolean handlesChunkId(int chunkId) {
-    return this.chunkId == chunkId || chunkIdAlt == chunkId;
+    return this.chunkId == chunkId;
   }
 
-  @NonNull
-  public ChunkClock getClock() {
-    return clock;
-  }
-
-  /**
-   * Sets the list of key frames
-   * @param keyFrames list of frame indexes or {@link ChunkIndex#ALL_KEY_FRAMES}
-   */
-  void setKeyFrames(@NonNull final int[] keyFrames) {
-    this.keyFrames = keyFrames;
-  }
-
-  public boolean isKeyFrame() {
-    return keyFrames == ChunkIndex.ALL_KEY_FRAMES || Arrays.binarySearch(keyFrames, clock.getIndex()) >= 0;
-  }
-
-  public boolean isVideo() {
-    return (chunkId & TYPE_VIDEO) == TYPE_VIDEO;
-  }
-
-  public boolean isAudio() {
-    return (chunkId & TYPE_AUDIO) == TYPE_AUDIO;
+  long getTimeUs() {
+    return timeUs;
   }
 
   public long getPosition() {
     return readEnd - readRemaining;
   }
 
-  public void setPosition(final long position, final int size) {
+  public void setRead(final long position, final int size) {
     readEnd = position + size;
     readRemaining = readSize = size;
   }
@@ -161,7 +132,7 @@ public class StreamHandler implements IReader {
   public boolean read(@NonNull ExtractorInput input) throws IOException {
     readRemaining -= trackOutput.sampleData(input, readRemaining, false);
     if (readComplete()) {
-      done(readSize);
+      sendMetadata(readSize);
       return true;
     } else {
       return false;
@@ -172,14 +143,14 @@ public class StreamHandler implements IReader {
    * Done reading a chunk.  Send the timing info and advance the clock
    * @param size the amount of data passed to the trackOutput
    */
-  void done(final int size) {
-    if (size > 0) {
-      //System.out.println("Stream: " + getId() + " key: " + isKeyFrame() + " Us: " + clock.getUs() + " size: " + size);
-      trackOutput.sampleMetadata(
-          clock.getUs(), (isKeyFrame() ? C.BUFFER_FLAG_KEY_FRAME : 0), size, 0, null);
-    }
-    clock.advance();
-  }
+  protected abstract void sendMetadata(final int size);
+
+  /**
+   * Set this stream as the primary seek stream
+   * Populate our seekPosition
+   * @return the positions of seekFrames
+   */
+  public abstract long[] setSeekStream();
 
   /**
    * Gets the streamId.
@@ -189,12 +160,9 @@ public class StreamHandler implements IReader {
     return getId(chunkId);
   }
 
-  /**
-   * A seek occurred
-   * @param index of the chunk
-   */
-  public void setIndex(int index) {
-    getClock().setIndex(index);
+  protected void setSeekPointSize(int seekPointCount) {
+    positions = new long[seekPointCount];
+    times = new long[seekPointCount];
   }
 
   @NonNull
@@ -208,6 +176,41 @@ public class StreamHandler implements IReader {
 
   public void setIndexBox(IndexBox indexBox) {
     this.indexBox = indexBox;
+  }
+
+  public int getSeekPointCount() {
+    return positions.length;
+  }
+
+  public int getTimeUsIndex(long timeUs) {
+    return Arrays.binarySearch(times, timeUs);
+  }
+
+  public long getTimeUs(int index) {
+    return times[index];
+  }
+
+  /**
+   * Used by seek
+   * @param timeUs
+   */
+  public void setTimeUs(long timeUs) {
+    if (timeUs == 0) {
+      this.timeUs = 0;
+    } else {
+      int index = Arrays.binarySearch(times, timeUs);
+      if (index < 0) {
+        index = -index - 1;
+        if (index >= times.length) {
+          index = times.length -1;
+        }
+      }
+      this.timeUs = times[index];
+    }
+  }
+
+  public long getPosition(int index) {
+    return positions[index];
   }
 
   @Override

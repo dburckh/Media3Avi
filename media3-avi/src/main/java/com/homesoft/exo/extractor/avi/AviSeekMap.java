@@ -28,21 +28,12 @@ import java.util.Arrays;
  * Consists of Video chunk offsets and indexes for all streams
  */
 public class AviSeekMap implements SeekMap {
-  private final int videoId;
-  private final long videoUsPerChunk;
-  private final long duration;
-  //These are ints / 2
-  private final long[] keyFramePositions;
-  //Seek chunk indexes by streamId
-  private final int[][] seekIndexes;
+  private final long durationUs;
+  private final StreamHandler seekStreamHandler;
 
-  public AviSeekMap(int videoId, long usDuration, int videoChunks, long[] keyFramePositions,
-      int[][] seekIndexes) {
-    this.videoId = videoId;
-    this.videoUsPerChunk = usDuration / videoChunks;
-    this.duration = usDuration;
-    this.keyFramePositions = keyFramePositions;
-    this.seekIndexes = seekIndexes;
+  public AviSeekMap(long durationUs, StreamHandler seekStreamHandler) {
+    this.durationUs = durationUs;
+    this.seekStreamHandler = seekStreamHandler;
   }
 
   @Override
@@ -52,12 +43,7 @@ public class AviSeekMap implements SeekMap {
 
   @Override
   public long getDurationUs() {
-    return duration;
-  }
-
-  private int getSeekIndex(long timeUs) {
-    final int reqFrame = (int)(timeUs / videoUsPerChunk);
-    return Arrays.binarySearch(seekIndexes[videoId], reqFrame);
+    return durationUs;
   }
 
   @VisibleForTesting
@@ -70,58 +56,23 @@ public class AviSeekMap implements SeekMap {
   }
 
   private SeekPoint getSeekPoint(int index) {
-    final long position = keyFramePositions[index];
-    final long outUs = seekIndexes[videoId][index] * videoUsPerChunk;
-    return new SeekPoint(outUs, position);
+    final long position = seekStreamHandler.getPosition(index);
+    final long timeUs = seekStreamHandler.getTimeUs(index);
+    return new SeekPoint(timeUs, position);
   }
 
   @NonNull
   @Override
   public SeekPoints getSeekPoints(long timeUs) {
-    final int index = getSeekIndex(timeUs);
+    final int index = seekStreamHandler.getTimeUsIndex(timeUs);
     if (index >= 0) {
       return new SeekPoints(getSeekPoint(index));
     }
     final int firstSeekIndex = getFirstSeekIndex(index);
-    if (firstSeekIndex + 1 < keyFramePositions.length) {
-      return new SeekPoints(getSeekPoint(firstSeekIndex), getSeekPoint(firstSeekIndex+1));
+    if (firstSeekIndex + 1 < seekStreamHandler.getSeekPointCount()) {
+      return new SeekPoints(getSeekPoint(firstSeekIndex), getSeekPoint(firstSeekIndex + 1));
     } else {
       return new SeekPoints(getSeekPoint(firstSeekIndex));
     }
-  }
-
-  /**
-   * Get the ChunkClock indexes by stream id
-   * @param position seek position in the file
-   */
-  @NonNull
-  public int[] getIndexes(final long position) {
-    final int index = Arrays.binarySearch(keyFramePositions, position);
-
-    if (index < 0) {
-      throw new IllegalArgumentException("Position: " + position);
-    }
-    final int[] indexes = new int[seekIndexes.length];
-    for (int i=0;i<indexes.length;i++) {
-      if (seekIndexes[i].length > index) {
-        indexes[i] = seekIndexes[i][index];
-      }
-    }
-    return indexes;
-  }
-
-  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-  public long getKeyFrameOffsets(int streamId) {
-    return keyFramePositions[streamId];
-  }
-
-  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-  public int[] getSeekIndexes(int streamId) {
-    return seekIndexes[streamId];
-  }
-
-  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-  public long getVideoUsPerChunk() {
-    return videoUsPerChunk;
   }
 }

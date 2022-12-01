@@ -77,7 +77,7 @@ public class AvcChunkPeekerTest {
     final PicCountClock picCountClock = avcChunkHandler.getPicCountClock();
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(P_SLICE).build();
 
-    avcChunkHandler.setPosition(0L, P_SLICE.length);
+    avcChunkHandler.setRead(0L, P_SLICE.length);
     avcChunkHandler.read(input);
 
     Assert.assertEquals(12, picCountClock.getLastPicCount());

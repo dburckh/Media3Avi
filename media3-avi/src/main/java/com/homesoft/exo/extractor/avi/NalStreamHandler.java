@@ -27,7 +27,7 @@ import java.util.Arrays;
  * Generic base class for NAL (0x00 0x00 0x01) chunk headers
  * Theses are used by AVC and MP4V (XVID)
  */
-public abstract class NalStreamHandler extends StreamHandler {
+public abstract class NalStreamHandler extends VideoStreamHandler {
   private static final int SEEK_PEEK_SIZE = 256;
   private final int peekSize;
 
@@ -35,9 +35,9 @@ public abstract class NalStreamHandler extends StreamHandler {
   transient byte[] buffer;
   transient int pos;
 
-  NalStreamHandler(int id, @NonNull TrackOutput trackOutput,
-                   @NonNull ChunkClock clock, int peakSize) {
-    super(id, TYPE_VIDEO, trackOutput, clock);
+  NalStreamHandler(int id, long durationUs, @NonNull TrackOutput trackOutput,
+                   int peakSize) {
+    super(id, durationUs, trackOutput);
     if (peakSize < 5) {
       throw new IllegalArgumentException("Peak size must at least be 5");
     }

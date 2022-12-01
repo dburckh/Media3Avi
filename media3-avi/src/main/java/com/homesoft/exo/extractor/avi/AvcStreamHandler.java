@@ -16,7 +16,6 @@
 package com.homesoft.exo.extractor.avi;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.extractor.ExtractorInput;
@@ -40,28 +39,44 @@ public class AvcStreamHandler extends NalStreamHandler {
 
   private final Format.Builder formatBuilder;
 
+  /**
+   * True if we are using the picOrder data in the AVC stream
+   */
+  private boolean usePicOrder;
+  //The frame as a calculated from the picCount
+  private int picOffset;
+  private int lastPicCount;
+  private int maxPicCount;
+  private int step = 2;
+  private int posHalf;
+  private int negHalf;
+
   private float pixelWidthHeightRatio = 1f;
   private NalUnitUtil.SpsData spsData;
 
-  public AvcStreamHandler(int id, @NonNull TrackOutput trackOutput,
-                          @NonNull ChunkClock clock, Format.Builder formatBuilder) {
-    super(id, trackOutput, clock, 16);
+  public AvcStreamHandler(int id, long durationUs, @NonNull TrackOutput trackOutput,
+                           Format.Builder formatBuilder) {
+    super(id, durationUs, trackOutput,  16);
     this.formatBuilder = formatBuilder;
   }
 
-  @Nullable
-  @VisibleForTesting
-  PicCountClock getPicCountClock() {
-    if (clock instanceof PicCountClock) {
-      return (PicCountClock)clock;
-    } else {
-      return null;
+
+  @Override
+  protected void advanceTime() {
+    super.advanceTime();
+    if (usePicOrder) {
+      picOffset--;
     }
   }
 
   @Override
+  long getTimeUs() {
+    return super.getTimeUs() + frameUs * picOffset;
+  }
+
+  @Override
   boolean skip(byte nalType) {
-    if (clock instanceof PicCountClock) {
+    if (usePicOrder) {
       return false;
     } else {
       //If the clock is ChunkClock, skip "normal" frames
@@ -74,7 +89,7 @@ public class AvcStreamHandler extends NalStreamHandler {
    * Full logic is here
    * https://chromium.googlesource.com/chromium/src/media/+/refs/heads/main/video/h264_poc.cc
    */
-  void updatePicCountClock(final int nalTypeOffset, final PicCountClock picCountClock) {
+  void updatePicCountClock(final int nalTypeOffset) {
     final ParsableNalUnitBitArray in = new ParsableNalUnitBitArray(buffer, nalTypeOffset + 1, buffer.length);
     //slide_header()
     in.readUnsignedExpGolombCodedInt(); //first_mb_in_slice
@@ -93,14 +108,12 @@ public class AvcStreamHandler extends NalStreamHandler {
     //We skip IDR in the switch
     if (spsData.picOrderCountType == 0) {
       int picOrderCountLsb = in.readBits(spsData.picOrderCntLsbLength);
-      picCountClock.setPicCount(picOrderCountLsb);
-      return;
+      setPicCount(picOrderCountLsb);
     } else if (spsData.picOrderCountType == 2) {
-      picCountClock.setPicCount(frameNum);
-      return;
+      setPicCount(frameNum);
     }
-    clock.setIndex(clock.getIndex());
   }
+
 
   @VisibleForTesting
   int readSps(ExtractorInput input, int nalTypeOffset) throws IOException {
@@ -108,20 +121,16 @@ public class AvcStreamHandler extends NalStreamHandler {
     nalTypeOffset = seekNextNal(input, spsStart);
     spsData = NalUnitUtil.parseSpsNalUnitPayload(buffer, spsStart, pos);
     //If we can have B Frames, upgrade to PicCountClock
-    final PicCountClock picCountClock;
-    if (spsData.maxNumRefFrames > 1 && !(clock instanceof PicCountClock)) {
-      picCountClock = new PicCountClock(clock.durationUs, clock.chunks);
-      picCountClock.setIndex(clock.getIndex());
-      clock = picCountClock;
-    } else {
-      picCountClock = getPicCountClock();
+    if (spsData.maxNumRefFrames > 1 && !usePicOrder) {
+      usePicOrder = true;
+      reset();
     }
-    if (picCountClock != null) {
+    if (usePicOrder) {
       if (spsData.picOrderCountType == 0) {
-        picCountClock.setMaxPicCount(1 << spsData.picOrderCntLsbLength, 2);
+        setMaxPicCount(1 << spsData.picOrderCntLsbLength, 2);
       } else if (spsData.picOrderCountType == 2) {
         //Plus one because we double the frame number
-        picCountClock.setMaxPicCount(1 << spsData.frameNumLength, 1);
+        setMaxPicCount(1 << spsData.frameNumLength, 1);
       }
     }
     if (spsData.pixelWidthHeightRatio != pixelWidthHeightRatio) {
@@ -141,17 +150,15 @@ public class AvcStreamHandler extends NalStreamHandler {
         case 2:
         case 3:
         case 4:
-          if (clock instanceof PicCountClock) {
-            updatePicCountClock(nalTypeOffset, (PicCountClock)clock);
+          if (usePicOrder) {
+            updatePicCountClock(nalTypeOffset);
           }
           return;
-        case NAL_TYPE_IDR: {
-          final PicCountClock picCountClock = getPicCountClock();
-          if (picCountClock != null) {
-            picCountClock.syncIndexes();
+        case NAL_TYPE_IDR:
+          if (usePicOrder) {
+            reset();
           }
           return;
-        }
         case NAL_TYPE_AUD:
         case NAL_TYPE_SEI:
         case NAL_TYPE_PPS: {
@@ -171,6 +178,31 @@ public class AvcStreamHandler extends NalStreamHandler {
       }
       compact();
     }
+  }
+
+  public void setMaxPicCount(int maxPicCount, int step) {
+    this.maxPicCount = maxPicCount;
+    this.step = step;
+    posHalf = maxPicCount / step;
+    negHalf = -posHalf;
+  }
+
+  public void setPicCount(int picCount) {
+    int delta = picCount - lastPicCount;
+    if (delta < negHalf) {
+      delta += maxPicCount;
+    } else if (delta > posHalf) {
+      delta -= maxPicCount;
+    }
+    picOffset += delta / step;
+    lastPicCount = picCount;
+  }
+
+  /**
+   * Handle key frame
+   */
+  public void reset() {
+    lastPicCount = picOffset = 0;
   }
 
   @VisibleForTesting(otherwise = VisibleForTesting.NONE)

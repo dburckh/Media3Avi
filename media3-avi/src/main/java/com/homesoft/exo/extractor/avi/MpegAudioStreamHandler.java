@@ -33,7 +33,7 @@ import java.io.IOException;
  * 1. That muxers don't always mux MPEG audio on the frame boundary
  * 2. That some codecs can't handle multiple or partial frames (Pixels)
  */
-public class MpegAudioStreamHandler extends StreamHandler {
+public class MpegAudioStreamHandler extends AudioStreamHandler {
   private final MpegAudioUtil.Header header = new MpegAudioUtil.Header();
   private final ParsableByteArray scratch = new ParsableByteArray(8);
   private final int samplesPerSecond;
@@ -43,20 +43,22 @@ public class MpegAudioStreamHandler extends StreamHandler {
    *  0 means we are seeking a new frame
    */
   private int frameRemaining = 0;
-  private long timeUs = 0L;
 
-  MpegAudioStreamHandler(int id, @NonNull TrackOutput trackOutput, @NonNull ChunkClock clock,
+  MpegAudioStreamHandler(int id, long durationUs, @NonNull TrackOutput trackOutput,
                          int samplesPerSecond) {
-    super(id, TYPE_AUDIO, trackOutput, clock);
+    super(id, durationUs, trackOutput);
     this.samplesPerSecond = samplesPerSecond;
+  }
+
+  @Override
+  protected void advanceTime(int size) {
+    timeUs += header.samplesPerFrame * C.MICROS_PER_SECOND / samplesPerSecond;
   }
 
   @Override
   public boolean read(@NonNull ExtractorInput input) throws IOException {
     if (readSize == 0) {
-      //Empty frame, advance the clock and sync
-      clock.advance();
-      syncTime();
+      //TODO: How to handle empty frame?
       return true;
     }
     if (frameRemaining == 0) {
@@ -66,7 +68,7 @@ public class MpegAudioStreamHandler extends StreamHandler {
           scratch.setPosition(0);
           trackOutput.sampleData(scratch, readSize);
           scratch.reset(0);
-          done(readSize);
+          sendMetadata(readSize);
         }
         return readComplete();
       }
@@ -83,8 +85,7 @@ public class MpegAudioStreamHandler extends StreamHandler {
     final int bytes = trackOutput.sampleData(input, Math.min(frameRemaining, readRemaining), false);
     frameRemaining -= bytes;
     if (frameRemaining == 0) {
-      trackOutput.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, header.frameSize, 0, null);
-      timeUs += header.samplesPerFrame * C.MICROS_PER_SECOND / samplesPerSecond;
+      sendMetadata(header.frameSize);
     }
     readRemaining -= bytes;
     return readComplete();
@@ -130,16 +131,9 @@ public class MpegAudioStreamHandler extends StreamHandler {
     return false;
   }
 
-  @Override
-  public void setIndex(int index) {
-    super.setIndex(index);
-    syncTime();
+  private void reset() {
     scratch.reset(0);
     frameRemaining = 0;
-  }
-
-  private void syncTime() {
-    timeUs = clock.getUs();
   }
 
   @VisibleForTesting(otherwise = VisibleForTesting.NONE)

@@ -42,9 +42,9 @@ public class Mp4VStreamHandler extends NalStreamHandler {
   @VisibleForTesting()
   float pixelWidthHeightRatio = 1f;
 
-  public Mp4VStreamHandler(int id, @NonNull TrackOutput trackOutput,
-                           @NonNull ChunkClock clock, @NonNull Format.Builder formatBuilder) {
-    super(id, trackOutput, clock, 5);
+  public Mp4VStreamHandler(int id, long durationUs, @NonNull TrackOutput trackOutput,
+                           @NonNull Format.Builder formatBuilder) {
+    super(id, durationUs, trackOutput, 5);
     this.formatBuilder = formatBuilder;
   }
 

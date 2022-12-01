@@ -64,21 +64,6 @@ public class AviExtractor implements Extractor {
     return sb.toString();
   }
 
-  static long alignPosition(long position) {
-    if ((position & 1) == 1) {
-      position++;
-    }
-    return position;
-  }
-
-  static void alignInput(@NonNull ExtractorInput input) throws IOException {
-    // This isn't documented anywhere, but most files are aligned to even bytes
-    // and can have gaps of zeros
-    if ((input.getPosition() & 1) == 1) {
-      input.skipFully(1);
-    }
-  }
-
   @NonNull
   static ByteBuffer allocate(int bytes) {
     final byte[] buffer = new byte[bytes];
@@ -144,43 +129,21 @@ public class AviExtractor implements Extractor {
    * Build and set the SeekMap based on the indices
    */
   private void buildSeekMap() {
-    fixTimings();
-
-    final StreamHandler videoTrack = getVideoTrack();
-    if (videoTrack == null) {
+    final StreamHandler seekStreamHandler = getSeekStreamHandler();
+    if (seekStreamHandler == null) {
       setSeekMap(new SeekMap.Unseekable(getDuration()));
       w("No video track found");
       return;
     }
-    final int videoTrackId = videoTrack.getId();
-    final ChunkIndex videoChunkIndex = videoTrack.getChunkIndex();
-    final int[] videoKeyFrames = videoChunkIndex.getKeyFrameSubset();
-    videoTrack.setKeyFrames(videoKeyFrames);
-    final int[] seekKeyFrames = videoChunkIndex.isAllKeyFrames() ?
-            videoChunkIndex.getKeyFrameSubset(videoTrack.clock.durationUs, 3) :
-            videoKeyFrames;
-    long[] seekOffsets = videoChunkIndex.getIndexPositions(seekKeyFrames);
+    long[] positions = seekStreamHandler.setSeekStream();
 
-    int[][] seekIndexArrays = new int[streamHandlers.length][];
-    seekIndexArrays[videoTrackId] = seekKeyFrames;
-    for (final StreamHandler streamHandler : streamHandlers) {
-      final int id = streamHandler.getId();
-      if (id != videoTrackId) {
-        final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
-        seekIndexArrays[id] = chunkIndex.getIndices(seekOffsets);
-        chunkIndex.release();
+    for (StreamHandler streamHandler : streamHandlers) {
+      // Currently, only Audio streams can be secondary.
+      if (streamHandler instanceof AudioStreamHandler && streamHandler != seekStreamHandler) {
+        ((AudioStreamHandler) streamHandler).setSeekFrames(positions);
       }
-      //Special case: first index is always 0 for seek(0,0) case
-      seekIndexArrays[id][0] = 0;
     }
-    //Always use the first chunk position in case of leading audio
-    seekOffsets[0] = getFirstChunkPosition();
-    final AviSeekMap seekMap = new AviSeekMap(videoTrackId, videoTrack.clock.durationUs,
-            videoTrack.getChunkIndex().getChunkCount(), seekOffsets, seekIndexArrays);
-
-    i("Video chunks=" + videoChunkIndex.getChunkCount() + " us=" + seekMap.getDurationUs());
-
-    setSeekMap(seekMap);
+    setSeekMap(new AviSeekMap(durationUs, seekStreamHandler));
   }
 
   @VisibleForTesting
@@ -215,8 +178,6 @@ public class AviExtractor implements Extractor {
       return null;
     }
     final long durationUs = streamHeader.getDurationUs();
-    //Initial estimate
-    final int length = streamHeader.getLength();
     final Format.Builder builder = new Format.Builder();
     builder.setId(streamId);
     final int suggestedBufferSize = streamHeader.getSuggestedBufferSize();
@@ -227,7 +188,6 @@ public class AviExtractor implements Extractor {
     if (streamName != null) {
       builder.setLabel(streamName.getName());
     }
-    final ChunkClock clock = new ChunkClock(durationUs, length);
     final StreamHandler streamHandler;
     if (streamHeader.isVideo()) {
       final VideoFormat videoFormat = streamFormat.getVideoFormat();
@@ -243,11 +203,11 @@ public class AviExtractor implements Extractor {
       builder.setSampleMimeType(mimeType);
 
       if (MimeTypes.VIDEO_H264.equals(mimeType)) {
-        streamHandler = new AvcStreamHandler(streamId, trackOutput, clock, builder);
+        streamHandler = new AvcStreamHandler(streamId, durationUs, trackOutput, builder);
       } else if (MimeTypes.VIDEO_MP4V.equals(mimeType)) {
-        streamHandler = new Mp4VStreamHandler(streamId, trackOutput, clock, builder);
+        streamHandler = new Mp4VStreamHandler(streamId, durationUs, trackOutput, builder);
       } else {
-        streamHandler = new StreamHandler(streamId, StreamHandler.TYPE_VIDEO, trackOutput, clock);
+        streamHandler = new VideoStreamHandler(streamId, durationUs, trackOutput);
       }
       trackOutput.format(builder.build());
       this.durationUs = durationUs;
@@ -275,13 +235,12 @@ public class AviExtractor implements Extractor {
       }
       trackOutput.format(builder.build());
       if (MimeTypes.AUDIO_MPEG.equals(mimeType)) {
-        streamHandler = new MpegAudioStreamHandler(streamId, trackOutput, clock,
+        streamHandler = new MpegAudioStreamHandler(streamId, durationUs, trackOutput,
             audioFormat.getSamplesPerSecond());
       } else {
-        streamHandler = new StreamHandler(streamId, StreamHandler.TYPE_AUDIO,
-            trackOutput, clock);
+        streamHandler = new AudioStreamHandler(streamId, durationUs,
+            trackOutput);
       }
-      streamHandler.setKeyFrames(ChunkIndex.ALL_KEY_FRAMES);
     }else {
       streamHandler = null;
     }
@@ -295,13 +254,18 @@ public class AviExtractor implements Extractor {
   }
 
   @VisibleForTesting
-  StreamHandler getVideoTrack() {
-    for (@Nullable StreamHandler streamHandler : streamHandlers) {
-      if (streamHandler != null && streamHandler.isVideo()) {
+  StreamHandler getSeekStreamHandler() {
+    if (streamHandlers.length == 0) {
+      return null;
+    }
+
+    for (StreamHandler streamHandler : streamHandlers) {
+      if (streamHandler instanceof VideoStreamHandler) {
         return streamHandler;
       }
     }
-    return null;
+    //Can't find video? just default to first stream
+    return streamHandlers[0];
   }
 
   @NonNull
@@ -318,26 +282,6 @@ public class AviExtractor implements Extractor {
       list.clear();
     }
     return list;
-  }
-
-  void fixTimings() {
-    for (final StreamHandler streamHandler : streamHandlers) {
-      final ChunkIndex chunkIndex = streamHandler.getChunkIndex();
-      final int indexChunkCount = chunkIndex.getChunkCount();
-      final ChunkClock chunkClock = streamHandler.getClock();
-
-      if (streamHandler.isAudio()) {
-        final long streamDurationUs = streamHandler.getClock().durationUs;
-        i("Audio #" + streamHandler.getId() + " chunks: " + indexChunkCount + " us=" +
-                streamDurationUs + " size=" + streamHandler.size);
-        //If the audio track duration is off from the video by >5 % recalc using video
-        if ((streamDurationUs - durationUs) / (float)durationUs > .05f) {
-          w("Audio #" + streamHandler.getId() + " duration is off, using videoDuration");
-          chunkClock.setDuration(durationUs);
-        }
-      }
-      chunkClock.setChunks(indexChunkCount);
-    }
   }
 
   /**
@@ -366,11 +310,11 @@ public class AviExtractor implements Extractor {
       final int chunkId = indexByteBuffer.getInt(); //0
       final int flags = indexByteBuffer.getInt(); //4
       final int offset = indexByteBuffer.getInt(); //8
-      indexByteBuffer.getInt(); // 12 Size
+      final int size = indexByteBuffer.getInt(); // 12 Size
 
       final StreamHandler streamHandler = getStreamHandler(chunkId);
       if (streamHandler != null) {
-        streamHandler.getChunkIndex().add(baseOffset + (offset & UINT_MASK),
+        streamHandler.getChunkIndex().add(baseOffset + (offset & UINT_MASK), size,
                 (flags & AVIIF_KEYFRAME) == AVIIF_KEYFRAME);
       }
     }
@@ -438,9 +382,9 @@ public class AviExtractor implements Extractor {
     }
     if (reader.getPosition() != input.getPosition()) {
       final int op = maybeSetPosition(input, positionHolder, reader.getPosition());
-      if (op == RESULT_SEEK) {
-        //i("Seek from: " + input.getPosition() + " for " + reader);
-      }
+//      if (op == RESULT_SEEK) {
+//        i("Seek from: " + input.getPosition() + " for " + reader);
+//      }
       return op;
     }
     if (reader.read(input)) {
@@ -475,20 +419,8 @@ public class AviExtractor implements Extractor {
         readerStack.add(moviBox);
       }
     }
-    if (position <= 0) {
-      setIndices(new int[streamHandlers.length]);
-    } else {
-      if (seekMap instanceof AviSeekMap) {
-        setIndices(((AviSeekMap)seekMap).getIndexes(position));
-      }
-    }
-  }
-
-  private void setIndices(@NonNull int[] indexes) {
-    for (@Nullable StreamHandler streamHandler : streamHandlers) {
-      if (streamHandler != null) {
-        streamHandler.setIndex(indexes[streamHandler.getId()]);
-      }
+    for (@NonNull StreamHandler streamHandler : streamHandlers) {
+      streamHandler.setTimeUs(timeUs);
     }
   }
 
@@ -646,7 +578,7 @@ public class AviExtractor implements Extractor {
       final int chunkId = headerPeeker.peak(input, CHUNK_HEADER_SIZE);
       final StreamHandler streamHandler = getStreamHandler(chunkId);
       if (streamHandler != null) {
-        streamHandler.setPosition(position + CHUNK_HEADER_SIZE, headerPeeker.getSize());
+        streamHandler.setRead(position + CHUNK_HEADER_SIZE, headerPeeker.getSize());
         push(streamHandler);
       } else if (chunkId == ListBox.LIST) {
         final int type = headerPeeker.peakType(input);
@@ -699,8 +631,10 @@ public class AviExtractor implements Extractor {
 
         for (int i=0;i<entriesInUse;i++) {
           final int offset = byteBuffer.getInt();
-          chunkIndex.add(baseOffset + (offset & AviExtractor.UINT_MASK),
-                  (byteBuffer.getInt() & Integer.MIN_VALUE) == 0);
+          final int size = byteBuffer.getInt();
+          final int size31 = size & 0x7f_ff_ff_ff;
+          chunkIndex.add(baseOffset + (offset & AviExtractor.UINT_MASK), size31,
+                  size == size31);
         }
       }
       if (!deque.isEmpty()) {

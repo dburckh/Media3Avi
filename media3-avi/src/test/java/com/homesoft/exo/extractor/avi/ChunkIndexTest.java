@@ -19,7 +19,7 @@ public class ChunkIndexTest {
         final int[] audioIndices = chunkIndex.getIndices(VIDEO_POSITIONS);
         Assert.assertEquals(audioIndices.length, VIDEO_POSITIONS.length);
         for (int i=1;i<VIDEO_POSITIONS.length;i++) {
-            Assert.assertTrue(chunkIndex.getIndexPosition(audioIndices[i]) >= VIDEO_POSITIONS[i]);
+            Assert.assertTrue(chunkIndex.getChunkPosition(audioIndices[i]) >= VIDEO_POSITIONS[i]);
         }
         // Special case where the audio stops before the last video frame
         Assert.assertEquals(audioOffsets.length - 1, audioIndices[audioIndices.length - 1]);
@@ -32,7 +32,7 @@ public class ChunkIndexTest {
         for (int i=0;i<secs*24;i++) {
             chunkIndex.add(i * 3L, true);
         }
-        final int[] indices = chunkIndex.getKeyFrameSubset(
+        final int[] indices = chunkIndex.getChunkSubset(
                 TimeUnit.MICROSECONDS.convert(secs, TimeUnit.SECONDS), 2);
         Assert.assertEquals(5, indices.length);
     }
