@@ -110,6 +110,9 @@ public class AviExtractor implements Extractor {
 
   @VisibleForTesting
   ExtractorOutput output;
+  /**
+   * From the AviHeader
+   */
   private long durationUs = C.TIME_UNSET;
   /**
    * ChunkHandlers by StreamId
@@ -129,19 +132,20 @@ public class AviExtractor implements Extractor {
    * Build and set the SeekMap based on the indices
    */
   private void buildSeekMap() {
+    long maxStreamDurationUs = 0;
     for (final StreamHandler streamHandler : streamHandlers) {
       if (streamHandler instanceof AudioStreamHandler) {
-        long streamDurationUs = streamHandler.getDurationUs();
-        if ((streamDurationUs - durationUs) / (float)durationUs > .05f) {
+        if ((streamHandler.getDurationUs() - durationUs) / (float)durationUs > .05f) {
           w("Audio #" + streamHandler.getId() + " duration is off, using videoDuration");
           ((AudioStreamHandler)streamHandler).setDurationUs(durationUs);
         }
       }
+      maxStreamDurationUs = Math.max(maxStreamDurationUs, streamHandler.getDurationUs());
     }
 
     final StreamHandler seekStreamHandler = getSeekStreamHandler();
     if (seekStreamHandler == null) {
-      setSeekMap(new SeekMap.Unseekable(getDuration()));
+      setSeekMap(new SeekMap.Unseekable(durationUs));
       w("No video track found");
       return;
     }
@@ -153,7 +157,9 @@ public class AviExtractor implements Extractor {
         ((AudioStreamHandler) streamHandler).setSeekFrames(positions);
       }
     }
-    setSeekMap(new AviSeekMap(durationUs, seekStreamHandler, moviList.get(0).getStart()));
+    // The AviHeader value can have rounding errors, so use the max stream duration if it's larger
+    setSeekMap(new AviSeekMap(Math.max(maxStreamDurationUs, durationUs),
+            seekStreamHandler, moviList.get(0).getStart()));
   }
 
   @VisibleForTesting
@@ -220,7 +226,6 @@ public class AviExtractor implements Extractor {
         streamHandler = new VideoStreamHandler(streamId, durationUs, trackOutput);
       }
       trackOutput.format(builder.build());
-      this.durationUs = durationUs;
     } else if (streamHeader.isAudio()) {
       final AudioFormat audioFormat = streamFormat.getAudioFormat();
       final TrackOutput trackOutput = output.track(streamId, C.TRACK_TYPE_AUDIO);
@@ -299,7 +304,7 @@ public class AviExtractor implements Extractor {
    */
   void parseIdx1(ByteBuffer indexByteBuffer) {
     if (indexByteBuffer.capacity() < 16) {
-      setSeekMap(new SeekMap.Unseekable(getDuration()));
+      setSeekMap(new SeekMap.Unseekable(durationUs));
       w("Index too short");
       return;
     }
@@ -348,7 +353,6 @@ public class AviExtractor implements Extractor {
       throw new IllegalArgumentException("Expected AviHeader in header ListBox");
     }
     long totalFrames = aviHeader.getTotalFrames();
-    durationUs = totalFrames * aviHeader.getMicroSecPerFrame();
     for (Box box : headerListBox.getChildren()) {
       if (box instanceof ListBox) {
         final ListBox listBox = (ListBox) box;
@@ -368,6 +372,7 @@ public class AviExtractor implements Extractor {
         }
       }
     }
+    durationUs = totalFrames * aviHeader.getMicroSecPerFrame();
     output.endTracks();
   }
 
