@@ -31,7 +31,7 @@ ExoPlayer exoPlayer = new ExoPlayer.Builder(context)
 
 ### Codec Support Notes
 - MP4V ASP (Xvid/Divx) support varies a lot by manufacturer.  Pixel devices generally have limited support, where Samsung/Moto seem to have better support.
-- MS MP4V (fourCC: MP42) is common in Avi files, but it's supported by any Android device I've found. 
+- MS MP4V (fourCC: MP42) is common in Avi files, but is not supported by any Android device I've found. 
 - AC3/DTS are common in Avi files, but many devices (Pixels) don't support these.  You can build the ffmpeg audio extension for support on these devices.  See Media3/ExoPlayer docs for more. 
 
 ### Change Log
