@@ -71,8 +71,7 @@ public class VideoStreamHandler extends StreamHandler {
      * Get the stream time for a chunk index
      * @param index the index of chunk in the stream
      */
-    @VisibleForTesting
-    long getChunkTimeUs(int index) {
+    protected long getChunkTimeUs(int index) {
         return durationUs * index / this.chunkIndex.getCount();
     }
 
