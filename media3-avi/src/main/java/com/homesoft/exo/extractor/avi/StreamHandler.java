@@ -47,7 +47,6 @@ public abstract class StreamHandler implements IReader {
    * Seek point variables
    */
   long[] positions = new long[0];
-  long[] times = new long[0];
 
 //  /**
 //   * Size total size of the stream in bytes calculated by the index
@@ -152,16 +151,23 @@ public abstract class StreamHandler implements IReader {
   public abstract long[] setSeekStream();
 
   /**
-   * Gets the streamId.
-   * @return The unique stream id for this file
+   * Perform a BinarySearch to get the correct index
+   * @return the exact match or a negative as defined in Arrays.binarySearch()
    */
+  protected abstract int getTimeUsSeekIndex(long timeUs);
+
+  public abstract long getTimeUs(int seekIndex);
+
+    /**
+     * Gets the streamId.
+     * @return The unique stream id for this file
+     */
   public int getId() {
     return getId(chunkId);
   }
 
   protected void setSeekPointSize(int seekPointCount) {
     positions = new long[seekPointCount];
-    times = new long[seekPointCount];
   }
 
   @NonNull
@@ -181,30 +187,25 @@ public abstract class StreamHandler implements IReader {
     return positions.length;
   }
 
-  public int getTimeUsIndex(long timeUs) {
-    return Arrays.binarySearch(times, timeUs);
-  }
-
-  public long getTimeUs(int index) {
-    return times[index];
-  }
-
   public long getPosition(int index) {
     return positions[index];
+  }
+
+  protected int getValidSeekIndex(int index) {
+    if (index < 0) {
+      index = -index - 1;
+      if (index >= positions.length) {
+        index = positions.length - 1;
+      }
+    }
+    return index;
   }
 
   protected int getSeekIndex(final long position) {
     if (position == 0) {
       return 0;
     }
-    int index = Arrays.binarySearch(positions, position);
-    if (index < 0) {
-      index = -index - 1;
-      if (index >= times.length) {
-        index = times.length - 1;
-      }
-    }
-    return index;
+    return getValidSeekIndex(Arrays.binarySearch(positions, position));
   }
 
   @Override

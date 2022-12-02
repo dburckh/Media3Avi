@@ -21,8 +21,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 
-import java.util.Arrays;
-
 /**
  * Seek map for AVI.
  * Consists of Video chunk offsets and indexes for all streams
@@ -57,20 +55,20 @@ public class AviSeekMap implements SeekMap {
     return firstIndex;
   }
 
-  private SeekPoint getSeekPoint(int index) {
-    final long timeUs = seekStreamHandler.getTimeUs(index);
-    final long position = index == 0 ? startPosition : seekStreamHandler.getPosition(index);
+  private SeekPoint getSeekPoint(int seekIndex) {
+    final long timeUs = seekStreamHandler.getTimeUs(seekIndex);
+    final long position = seekIndex == 0 ? startPosition : seekStreamHandler.getPosition(seekIndex);
     return new SeekPoint(timeUs, position);
   }
 
   @NonNull
   @Override
   public SeekPoints getSeekPoints(long timeUs) {
-    final int index = seekStreamHandler.getTimeUsIndex(timeUs);
-    if (index >= 0) {
-      return new SeekPoints(getSeekPoint(index));
+    final int seekIndex = seekStreamHandler.getTimeUsSeekIndex(timeUs);
+    if (seekIndex >= 0) {
+      return new SeekPoints(getSeekPoint(seekIndex));
     }
-    final int firstSeekIndex = getFirstSeekIndex(index);
+    final int firstSeekIndex = getFirstSeekIndex(seekIndex);
     if (firstSeekIndex + 1 < seekStreamHandler.getSeekPointCount()) {
       return new SeekPoints(getSeekPoint(firstSeekIndex), getSeekPoint(firstSeekIndex + 1));
     } else {

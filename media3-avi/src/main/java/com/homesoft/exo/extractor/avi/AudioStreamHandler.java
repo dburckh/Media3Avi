@@ -7,6 +7,7 @@ import androidx.media3.extractor.TrackOutput;
 import java.util.Arrays;
 
 public class AudioStreamHandler extends StreamHandler {
+    long[] times = new long[0];
 
     /**
      * Current time in the stream
@@ -28,7 +29,7 @@ public class AudioStreamHandler extends StreamHandler {
     @Override
     protected void sendMetadata(int size) {
         if (size > 0) {
-            System.out.println("AudioStream: " + getId() + " Us: " + getTimeUs() + " size: " + size);
+            //System.out.println("AudioStream: " + getId() + " Us: " + getTimeUs() + " size: " + size);
             trackOutput.sampleMetadata(
                     getTimeUs(), C.BUFFER_FLAG_KEY_FRAME, size, 0, null);
         }
@@ -79,5 +80,21 @@ public class AudioStreamHandler extends StreamHandler {
     public void seekPosition(long position) {
         final int seekIndex = getSeekIndex(position);
         timeUs = times[seekIndex];
+    }
+
+    @Override
+    protected void setSeekPointSize(int seekPointCount) {
+        super.setSeekPointSize(seekPointCount);
+        times = new long[seekPointCount];
+    }
+
+    @Override
+    public int getTimeUsSeekIndex(long timeUs) {
+        return Arrays.binarySearch(times, timeUs);
+    }
+
+    @Override
+    public long getTimeUs(int seekIndex) {
+        return times[seekIndex];
     }
 }

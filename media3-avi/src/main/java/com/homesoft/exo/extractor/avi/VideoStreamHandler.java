@@ -11,6 +11,8 @@ public class VideoStreamHandler extends StreamHandler {
     private long frameUs;
     protected int index;
     private boolean allKeyFrames;
+    @VisibleForTesting
+    int[] indices=new int[0];
     /**
      * Secondary chunk id.  Bad muxers sometimes use uncompressed for key frames
      */
@@ -37,7 +39,7 @@ public class VideoStreamHandler extends StreamHandler {
     @Override
     protected void sendMetadata(int size) {
         if (size > 0) {
-            System.out.println("VideoStream: " + getId() + " Us: " + getTimeUs() + " size: " + size + " key: " + isKeyFrame());
+            //System.out.println("VideoStream: " + getId() + " Us: " + getTimeUs() + " size: " + size + " key: " + isKeyFrame());
             trackOutput.sampleMetadata(
                     getTimeUs(), (isKeyFrame() ? C.BUFFER_FLAG_KEY_FRAME : 0), size, 0, null);
         }
@@ -59,22 +61,60 @@ public class VideoStreamHandler extends StreamHandler {
         for (int i=0;i<seekFrameIndices.length;i++) {
             final int index = seekFrameIndices[i];
             positions[i] = chunkIndex.getChunkPosition(index);
-            times[i] = durationUs * index / frames;
+            indices[i] = index;
         }
         chunkIndex.release();
         return positions;
     }
 
+    /**
+     * Get the stream time for a chunk index
+     * @param index the index of chunk in the stream
+     */
+    private long getChunkTimeUs(int index) {
+        return durationUs * index / this.chunkIndex.getCount();
+    }
+
+    @Override
+    public long getTimeUs(int seekIndex) {
+        if (seekIndex == 0) {
+            return 0L;
+        }
+        return getChunkTimeUs(indices[seekIndex]);
+    }
+
     @Override
     public long getTimeUs() {
-        return durationUs * index / chunkIndex.getCount();
+        return getChunkTimeUs(index);
+    }
+
+    @Override
+    public int getTimeUsSeekIndex(long timeUs) {
+        if (timeUs == 0L) {
+            return 0;
+        }
+        final int index = (int)(timeUs / frameUs);
+        final int seekIndex = Arrays.binarySearch(indices, index);
+        if (seekIndex >= 0) {
+            // The search rounds down to the nearest chunk time,
+            // if we aren't an exact time match fix up the result
+            if (getChunkTimeUs(indices[seekIndex]) != timeUs) {
+                return -seekIndex -1;
+            }
+        }
+        return seekIndex;
     }
 
     @Override
     public void seekPosition(long position) {
         final int seekIndex = getSeekIndex(position);
-        final long timeUs = times[seekIndex];
-        index = (int)((timeUs + frameUs / 2) / frameUs);
+        index = indices[seekIndex];
+    }
+
+    @Override
+    protected void setSeekPointSize(int seekPointCount) {
+        super.setSeekPointSize(seekPointCount);
+        indices = new int[seekPointCount];
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.NONE)

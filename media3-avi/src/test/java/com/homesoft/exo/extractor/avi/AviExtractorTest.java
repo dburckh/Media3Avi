@@ -299,8 +299,8 @@ public class AviExtractorTest {
     final AviSeekMap aviSeekMap = DataHelper.getAviSeekMap(aviExtractor.getSeekStreamHandler());
     aviExtractor.setSeekMap(aviSeekMap);
     final StreamHandler streamHandler = aviExtractor.getSeekStreamHandler();
-    aviExtractor.seek(streamHandler.positions[1], streamHandler.times[1]);
-    Assert.assertEquals(streamHandler.getTimeUs(), streamHandler.times[1]);
+    aviExtractor.seek(streamHandler.positions[1], streamHandler.getTimeUs(1));
+    Assert.assertEquals(streamHandler.getTimeUs(), streamHandler.getTimeUs(1));
   }
 
   @Test

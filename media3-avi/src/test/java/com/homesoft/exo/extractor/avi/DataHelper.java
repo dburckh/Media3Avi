@@ -25,8 +25,6 @@ import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 
-import org.checkerframework.checker.units.qual.A;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -144,7 +142,11 @@ public class DataHelper {
 
   public static AviSeekMap getAviSeekMap(StreamHandler streamHandler) {
     streamHandler.positions = new long[]{1024, 2048};
-    streamHandler.times = new long[]{0, VIDEO_US};
+    if (streamHandler instanceof VideoStreamHandler) {
+      ((VideoStreamHandler) streamHandler).indices = new int[]{0, 1};
+    } else if (streamHandler instanceof AudioStreamHandler){
+      ((AudioStreamHandler) streamHandler).times = new long[]{0, VIDEO_US};
+    }
     return new AviSeekMap(streamHandler.getDurationUs(), streamHandler, 1024);
   }
 
