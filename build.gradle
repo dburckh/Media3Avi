@@ -8,5 +8,5 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 ext {
-    media3_version = "1.0.0-beta02"
+    media3_version = "1.0.0-beta03"
 }
