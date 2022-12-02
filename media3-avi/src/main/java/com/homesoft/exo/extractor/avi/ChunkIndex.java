@@ -134,18 +134,6 @@ public class ChunkIndex {
         return Arrays.copyOf(work, k);
     }
 
-    /**
-     * Get the positions for an array of indices
-     */
-    public long[] getIndexPositions(int[] indices) {
-        checkReleased();
-        long[] positions = new long[indices.length];
-        for (int k=0;k<indices.length;k++) {
-            positions[k] = this.positions[indices[k]];
-        }
-        return positions;
-    }
-
     private void checkReleased() {
         if (positions == RELEASED) {
             throw new IllegalStateException("ChunkIndex released.");
@@ -161,7 +149,7 @@ public class ChunkIndex {
     }
 
     private void grow() {
-        int newLength = positions.length +  Math.max(positions.length /4, 1);
+        int newLength = positions.length * 5 / 4;
         positions = Arrays.copyOf(positions, newLength);
         sizes = Arrays.copyOf(sizes, newLength);
     }
