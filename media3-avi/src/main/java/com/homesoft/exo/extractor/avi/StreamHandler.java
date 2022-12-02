@@ -105,11 +105,7 @@ public abstract class StreamHandler implements IReader {
 
   public abstract long getTimeUs();
 
-  /**
-   * Used by seek
-   * @param timeUs
-   */
-  public abstract void setTimeUs(long timeUs);
+  public abstract void seekPosition(long position);
 
   public long getDurationUs() {
     return durationUs;
@@ -195,6 +191,20 @@ public abstract class StreamHandler implements IReader {
 
   public long getPosition(int index) {
     return positions[index];
+  }
+
+  protected int getSeekIndex(final long position) {
+    if (position == 0) {
+      return 0;
+    }
+    int index = Arrays.binarySearch(positions, position);
+    if (index < 0) {
+      index = -index - 1;
+      if (index >= times.length) {
+        index = times.length - 1;
+      }
+    }
+    return index;
   }
 
   @Override

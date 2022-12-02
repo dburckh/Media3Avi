@@ -132,8 +132,8 @@ public class MpegAudioStreamHandler extends AudioStreamHandler {
   }
 
   @Override
-  public void setTimeUs(long timeUs) {
-    super.setTimeUs(timeUs);
+  public void seekPosition(long position) {
+    super.seekPosition(position);
     scratch.reset(0);
     frameRemaining = 0;
   }

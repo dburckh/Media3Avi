@@ -71,7 +71,9 @@ public class VideoStreamHandler extends StreamHandler {
     }
 
     @Override
-    public void setTimeUs(long timeUs) {
+    public void seekPosition(long position) {
+        final int seekIndex = getSeekIndex(position);
+        final long timeUs = times[seekIndex];
         index = (int)((timeUs + frameUs / 2) / frameUs);
     }
 

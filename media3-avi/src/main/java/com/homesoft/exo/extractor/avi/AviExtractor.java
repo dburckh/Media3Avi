@@ -435,7 +435,7 @@ public class AviExtractor implements Extractor {
       }
     }
     for (@NonNull StreamHandler streamHandler : streamHandlers) {
-      streamHandler.setTimeUs(timeUs);
+      streamHandler.seekPosition(position);
     }
   }
 

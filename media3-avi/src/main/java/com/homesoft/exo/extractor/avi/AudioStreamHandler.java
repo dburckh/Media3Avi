@@ -74,23 +74,10 @@ public class AudioStreamHandler extends StreamHandler {
     public long getTimeUs() {
         return timeUs;
     }
-    /**
-     * Used by seek
-     * @param timeUs
-     */
+
     @Override
-    public void setTimeUs(long timeUs) {
-        if (timeUs == 0) {
-            this.timeUs = 0;
-        } else {
-            int index = Arrays.binarySearch(times, timeUs);
-            if (index < 0) {
-                index = -index -1;
-                if (index >= times.length) {
-                    index = times.length -1;
-                }
-            }
-            this.timeUs = times[index];
-        }
+    public void seekPosition(long position) {
+        final int seekIndex = getSeekIndex(position);
+        timeUs = times[seekIndex];
     }
 }

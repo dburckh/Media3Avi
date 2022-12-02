@@ -93,7 +93,8 @@ public class ChunkIndex {
         final int[] work = new int[seekPositions.length];
         int i = 0;
         final int maxI = getCount() - 1;
-        for (int p=0;p<seekPositions.length;p++) {
+        // Start p at 1, so seekPosition[0] is always mapped to index 0
+        for (int p=1;p<seekPositions.length;p++) {
             while (i < maxI && positions[i] < seekPositions[p]) {
                 i++;
             }
