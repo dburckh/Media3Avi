@@ -26,7 +26,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
-import androidx.media3.extractor.SeekMap;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
@@ -39,7 +38,6 @@ import org.junit.runner.RunWith;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
-import java.util.Collections;
 import java.util.function.Predicate;
 
 @RunWith(AndroidJUnit4.class)
@@ -408,7 +406,7 @@ public class AviExtractorTest {
       chunkIndex.add(i, 1024, false);
     }
 
-    Assert.assertEquals(testLen, chunkIndex.getChunkCount());
+    Assert.assertEquals(testLen, chunkIndex.getCount());
     for (int i=0; i < testLen; i++) {
       Assert.assertEquals(i, chunkIndex.positions[i]);
     }

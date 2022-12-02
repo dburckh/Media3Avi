@@ -24,7 +24,7 @@ public class MockNalStreamHandler extends NalStreamHandler {
   private boolean skip;
   public MockNalStreamHandler(int peakSize, boolean skip) {
     super(0, 1_000_000L, new FakeTrackOutput(false), peakSize);
-    frameUs = DataHelper.VIDEO_US;
+    setFps(DataHelper.FPS);
     this.skip = skip;
   }
 

@@ -1,13 +1,15 @@
 package com.homesoft.exo.extractor.avi;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.extractor.TrackOutput;
 
 import java.util.Arrays;
 
 public class VideoStreamHandler extends StreamHandler {
-    protected long frameUs;
+    private long frameUs;
+    protected int index;
     private boolean allKeyFrames;
     /**
      * Secondary chunk id.  Bad muxers sometimes use uncompressed for key frames
@@ -29,7 +31,7 @@ public class VideoStreamHandler extends StreamHandler {
     }
 
     protected void advanceTime() {
-        timeUs += frameUs;
+        index++;
     }
 
     @Override
@@ -51,7 +53,7 @@ public class VideoStreamHandler extends StreamHandler {
         } else {
             seekFrameIndices = chunkIndex.getChunkSubset();
         }
-        final int frames = chunkIndex.getChunkCount();
+        final int frames = chunkIndex.getCount();
         frameUs = durationUs / frames;
         setSeekPointSize(seekFrameIndices.length);
         for (int i=0;i<seekFrameIndices.length;i++) {
@@ -61,5 +63,22 @@ public class VideoStreamHandler extends StreamHandler {
         }
         chunkIndex.release();
         return positions;
+    }
+
+    @Override
+    public long getTimeUs() {
+        return durationUs * index / chunkIndex.getCount();
+    }
+
+    @Override
+    public void setTimeUs(long timeUs) {
+        index = (int)((timeUs + frameUs / 2) / frameUs);
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.NONE)
+    public void setFps(int fps) {
+        final int chunks = (int)(durationUs * fps / C.MICROS_PER_SECOND);
+        chunkIndex.setCount(chunks);
+        frameUs = C.MICROS_PER_SECOND / fps;
     }
 }

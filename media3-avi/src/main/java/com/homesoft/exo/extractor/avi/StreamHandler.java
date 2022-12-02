@@ -44,11 +44,6 @@ public abstract class StreamHandler implements IReader {
   long durationUs;
 
   /**
-   * Current time in the stream
-   */
-  protected long timeUs;
-
-  /**
    * Seek point variables
    */
   long[] positions = new long[0];
@@ -108,9 +103,13 @@ public abstract class StreamHandler implements IReader {
     return this.chunkId == chunkId;
   }
 
-  long getTimeUs() {
-    return timeUs;
-  }
+  public abstract long getTimeUs();
+
+  /**
+   * Used by seek
+   * @param timeUs
+   */
+  public abstract void setTimeUs(long timeUs);
 
   public long getDurationUs() {
     return durationUs;
@@ -192,25 +191,6 @@ public abstract class StreamHandler implements IReader {
 
   public long getTimeUs(int index) {
     return times[index];
-  }
-
-  /**
-   * Used by seek
-   * @param timeUs
-   */
-  public void setTimeUs(long timeUs) {
-    if (timeUs == 0) {
-      this.timeUs = 0;
-    } else {
-      int index = Arrays.binarySearch(times, timeUs);
-      if (index < 0) {
-        index = -index -1;
-        if (index >= times.length) {
-          index = times.length -1;
-        }
-      }
-      this.timeUs = times[index];
-    }
   }
 
   public long getPosition(int index) {

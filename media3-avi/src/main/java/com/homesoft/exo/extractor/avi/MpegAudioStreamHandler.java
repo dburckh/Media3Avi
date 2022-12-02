@@ -139,11 +139,6 @@ public class MpegAudioStreamHandler extends AudioStreamHandler {
   }
 
   @VisibleForTesting(otherwise = VisibleForTesting.NONE)
-  long getTimeUs() {
-    return timeUs;
-  }
-
-  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
   int getFrameRemaining() {
     return frameRemaining;
   }

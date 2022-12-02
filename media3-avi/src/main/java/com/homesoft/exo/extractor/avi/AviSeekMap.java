@@ -30,10 +30,12 @@ import java.util.Arrays;
 public class AviSeekMap implements SeekMap {
   private final long durationUs;
   private final StreamHandler seekStreamHandler;
+  private final long startPosition;
 
-  public AviSeekMap(long durationUs, StreamHandler seekStreamHandler) {
+  public AviSeekMap(long durationUs, StreamHandler seekStreamHandler, long startPosition) {
     this.durationUs = durationUs;
     this.seekStreamHandler = seekStreamHandler;
+    this.startPosition = startPosition;
   }
 
   @Override
@@ -56,8 +58,8 @@ public class AviSeekMap implements SeekMap {
   }
 
   private SeekPoint getSeekPoint(int index) {
-    final long position = seekStreamHandler.getPosition(index);
     final long timeUs = seekStreamHandler.getTimeUs(index);
+    final long position = index == 0 ? startPosition : seekStreamHandler.getPosition(index);
     return new SeekPoint(timeUs, position);
   }
 

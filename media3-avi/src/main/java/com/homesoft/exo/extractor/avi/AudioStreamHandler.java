@@ -4,7 +4,14 @@ import androidx.annotation.NonNull;
 import androidx.media3.common.C;
 import androidx.media3.extractor.TrackOutput;
 
+import java.util.Arrays;
+
 public class AudioStreamHandler extends StreamHandler {
+
+    /**
+     * Current time in the stream
+     */
+    protected long timeUs;
 
     private long calcTimeUs(long streamPosition) {
         return durationUs * streamPosition / chunkIndex.getSize();
@@ -30,7 +37,7 @@ public class AudioStreamHandler extends StreamHandler {
 
     private void setSeekFrames(int[] seekFrameIndices) {
         setSeekPointSize(seekFrameIndices.length);
-        final int chunks = chunkIndex.getChunkCount();
+        final int chunks = chunkIndex.getCount();
 
         int k = 0;
         long streamBytes = 0;
@@ -61,5 +68,29 @@ public class AudioStreamHandler extends StreamHandler {
 
     void setDurationUs(long durationUs) {
         this.durationUs = durationUs;
+    }
+
+    @Override
+    public long getTimeUs() {
+        return timeUs;
+    }
+    /**
+     * Used by seek
+     * @param timeUs
+     */
+    @Override
+    public void setTimeUs(long timeUs) {
+        if (timeUs == 0) {
+            this.timeUs = 0;
+        } else {
+            int index = Arrays.binarySearch(times, timeUs);
+            if (index < 0) {
+                index = -index -1;
+                if (index >= times.length) {
+                    index = times.length -1;
+                }
+            }
+            this.timeUs = times[index];
+        }
     }
 }

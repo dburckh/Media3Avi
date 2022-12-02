@@ -72,8 +72,8 @@ public class AvcStreamHandler extends NalStreamHandler {
   }
 
   @Override
-  long getTimeUs() {
-    return super.getTimeUs() + frameUs * picOffset;
+  public long getTimeUs() {
+    return durationUs * (index + picOffset) / chunkIndex.getCount();
   }
 
   @Override

@@ -42,7 +42,7 @@ public class Mp4vChunkPeekerTest {
     final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
     final Format.Builder formatBuilder = new Format.Builder();
     final Mp4VStreamHandler mp4vChunkPeeker = new Mp4VStreamHandler(0, 1_000_000L, fakeTrackOutput, formatBuilder);
-    mp4vChunkPeeker.frameUs = DataHelper.VIDEO_US;
+    mp4vChunkPeeker.setFps(DataHelper.FPS);
     return mp4vChunkPeeker;
   }
 

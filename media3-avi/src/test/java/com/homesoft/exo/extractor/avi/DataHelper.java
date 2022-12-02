@@ -127,7 +127,7 @@ public class DataHelper {
   public static VideoStreamHandler getVideoChunkHandler(int sec) {
     final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
     VideoStreamHandler videoStreamHandler =  new VideoStreamHandler(0, sec * 1_000_000L, fakeTrackOutput);
-    videoStreamHandler.frameUs = VIDEO_US;
+    videoStreamHandler.setFps(FPS);
     return videoStreamHandler;
   }
 
@@ -145,7 +145,7 @@ public class DataHelper {
   public static AviSeekMap getAviSeekMap(StreamHandler streamHandler) {
     streamHandler.positions = new long[]{1024, 2048};
     streamHandler.times = new long[]{0, VIDEO_US};
-    return new AviSeekMap(streamHandler.getDurationUs(), streamHandler);
+    return new AviSeekMap(streamHandler.getDurationUs(), streamHandler, 1024);
   }
 
   private static void putIndex(final ByteBuffer byteBuffer, int chunkId, int flags, int offset,

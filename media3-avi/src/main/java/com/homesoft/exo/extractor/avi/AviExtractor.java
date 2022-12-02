@@ -153,7 +153,7 @@ public class AviExtractor implements Extractor {
         ((AudioStreamHandler) streamHandler).setSeekFrames(positions);
       }
     }
-    setSeekMap(new AviSeekMap(durationUs, seekStreamHandler));
+    setSeekMap(new AviSeekMap(durationUs, seekStreamHandler, moviList.get(0).getStart()));
   }
 
   @VisibleForTesting
@@ -348,6 +348,7 @@ public class AviExtractor implements Extractor {
       throw new IllegalArgumentException("Expected AviHeader in header ListBox");
     }
     long totalFrames = aviHeader.getTotalFrames();
+    durationUs = totalFrames * aviHeader.getMicroSecPerFrame();
     for (Box box : headerListBox.getChildren()) {
       if (box instanceof ListBox) {
         final ListBox listBox = (ListBox) box;
@@ -367,7 +368,6 @@ public class AviExtractor implements Extractor {
         }
       }
     }
-    durationUs = totalFrames * aviHeader.getMicroSecPerFrame();
     output.endTracks();
   }
 

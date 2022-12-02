@@ -49,7 +49,7 @@ public class AvcChunkPeekerTest {
     fakeTrackOutput = new FakeTrackOutput(false);
     avcChunkHandler = new AvcStreamHandler(0, 10_000_000L, fakeTrackOutput,
         FORMAT_BUILDER_AVC);
-    avcChunkHandler.frameUs = DataHelper.VIDEO_US;
+    avcChunkHandler.setFps(DataHelper.FPS);
   }
 
   private void peekStreamHeader() throws IOException {

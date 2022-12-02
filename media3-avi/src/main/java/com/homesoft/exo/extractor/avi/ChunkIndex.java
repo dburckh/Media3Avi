@@ -22,7 +22,7 @@ public class ChunkIndex {
     /**
      * Chunks in the stream
      */
-    private int chunks = 0;
+    private int count = 0;
     /**
      * Total size of the stream
      */
@@ -33,25 +33,25 @@ public class ChunkIndex {
      * @param key key frame
      */
     public void add(long position, int size, boolean key) {
-        if (positions.length <= chunks) {
+        if (positions.length <= count) {
             checkReleased();
             grow();
         }
-        this.positions[chunks] = position;
-        this.sizes[chunks] = size;
+        this.positions[count] = position;
+        this.sizes[count] = size;
         this.size += size;
         if (key) {
-            keyFrames.set(chunks);
+            keyFrames.set(count);
         }
-        chunks++;
+        count++;
     }
 
     boolean isAllKeyFrames() {
-        return keyFrames.cardinality() == chunks;
+        return keyFrames.cardinality() == count;
     }
 
-    public int getChunkCount() {
-        return chunks;
+    public int getCount() {
+        return count;
     }
 
     public long getSize() {
@@ -73,7 +73,7 @@ public class ChunkIndex {
         } else {
             final int[] keyFrameIndices = new int[getKeyFrameCount()];
             int i=0;
-            for (int f = 0; f < chunks; f++) {
+            for (int f = 0; f < count; f++) {
                 if (keyFrames.get(f)) {
                     keyFrameIndices[i++] = f;
                 }
@@ -92,7 +92,7 @@ public class ChunkIndex {
 
         final int[] work = new int[seekPositions.length];
         int i = 0;
-        final int maxI = getChunkCount() - 1;
+        final int maxI = getCount() - 1;
         for (int p=0;p<seekPositions.length;p++) {
             while (i < maxI && positions[i] < seekPositions[p]) {
                 i++;
@@ -118,13 +118,13 @@ public class ChunkIndex {
      */
     public int[] getChunkSubset(final long durationUs, final int chunkRate) {
         checkReleased();
-        final long chunkDurUs = durationUs / chunks;
+        final long chunkDurUs = durationUs / count;
         final long chunkRateUs = chunkRate * 1_000_000L;
-        final int[] work = new int[chunks]; //This is overkill, but keeps the logic simple.
+        final int[] work = new int[count]; //This is overkill, but keeps the logic simple.
         long clockUs = 0;
         long nextChunkUs = 0;
         int k = 0;
-        for (int f = 0; f < chunks; f++) {
+        for (int f = 0; f < count; f++) {
             if (clockUs >= nextChunkUs) {
                 work[k++] = f;
                 nextChunkUs += chunkRateUs;
@@ -164,5 +164,10 @@ public class ChunkIndex {
         int newLength = positions.length +  Math.max(positions.length /4, 1);
         positions = Arrays.copyOf(positions, newLength);
         sizes = Arrays.copyOf(sizes, newLength);
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.NONE)
+    void setCount(int count) {
+        this.count = count;
     }
 }
