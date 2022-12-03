@@ -35,7 +35,10 @@ ExoPlayer exoPlayer = new ExoPlayer.Builder(context)
 - AC3/DTS are common in Avi files, but many devices (Pixels) don't support these.  You can build the ffmpeg audio extension for support on these devices.  See Media3/ExoPlayer docs for more. 
 
 ### Change Log
-2.1.0
+2.1.1
+- Fix timings for Mp4V with BVOP
+
+2.1
 - Support for audio with variable chunk sizes
 - Update to Media3-beta03
 - Minor seek fixes
