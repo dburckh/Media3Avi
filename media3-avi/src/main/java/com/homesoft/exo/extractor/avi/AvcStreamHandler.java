@@ -39,21 +39,6 @@ public class AvcStreamHandler extends NalStreamHandler {
 
   private final Format.Builder formatBuilder;
 
-  /**
-   * True if we are using the picOrder data in the AVC stream
-   */
-  private boolean usePicOrder;
-  //The frame as a calculated from the picCount
-  @VisibleForTesting
-  int picOffset;
-  @VisibleForTesting
-  int lastPicCount;
-  @VisibleForTesting
-  int maxPicCount;
-  private int step = 2;
-  private int posHalf;
-  private int negHalf;
-
   private float pixelWidthHeightRatio = 1f;
   private NalUnitUtil.SpsData spsData;
 
@@ -65,21 +50,8 @@ public class AvcStreamHandler extends NalStreamHandler {
 
 
   @Override
-  protected void advanceTime() {
-    super.advanceTime();
-    if (usePicOrder) {
-      picOffset--;
-    }
-  }
-
-  @Override
-  public long getTimeUs() {
-    return durationUs * (index + picOffset) / chunkIndex.getCount();
-  }
-
-  @Override
   boolean skip(byte nalType) {
-    if (usePicOrder) {
+    if (usePicClock) {
       return false;
     } else {
       //If the clock is ChunkClock, skip "normal" frames
@@ -117,18 +89,17 @@ public class AvcStreamHandler extends NalStreamHandler {
     }
   }
 
-
   @VisibleForTesting
   int readSps(ExtractorInput input, int nalTypeOffset) throws IOException {
     final int spsStart = nalTypeOffset + 1;
     nalTypeOffset = seekNextNal(input, spsStart);
     spsData = NalUnitUtil.parseSpsNalUnitPayload(buffer, spsStart, pos);
     //If we can have B Frames, upgrade to PicCountClock
-    if (spsData.maxNumRefFrames > 1 && !usePicOrder) {
-      usePicOrder = true;
+    if (spsData.maxNumRefFrames > 1 && !usePicClock) {
+      usePicClock = true;
       reset();
     }
-    if (usePicOrder) {
+    if (usePicClock) {
       if (spsData.picOrderCountType == 0) {
         setMaxPicCount(1 << spsData.picOrderCntLsbLength, 2);
       } else if (spsData.picOrderCountType == 2) {
@@ -153,12 +124,12 @@ public class AvcStreamHandler extends NalStreamHandler {
         case 2:
         case 3:
         case 4:
-          if (usePicOrder) {
+          if (usePicClock) {
             updatePicCountClock(nalTypeOffset);
           }
           return;
         case NAL_TYPE_IDR:
-          if (usePicOrder) {
+          if (usePicClock) {
             reset();
           }
           return;
@@ -181,31 +152,6 @@ public class AvcStreamHandler extends NalStreamHandler {
       }
       compact();
     }
-  }
-
-  public void setMaxPicCount(int maxPicCount, int step) {
-    this.maxPicCount = maxPicCount;
-    this.step = step;
-    posHalf = maxPicCount / step;
-    negHalf = -posHalf;
-  }
-
-  public void setPicCount(int picCount) {
-    int delta = picCount - lastPicCount;
-    if (delta < negHalf) {
-      delta += maxPicCount;
-    } else if (delta > posHalf) {
-      delta -= maxPicCount;
-    }
-    picOffset += delta / step;
-    lastPicCount = picCount;
-  }
-
-  /**
-   * Handle key frame
-   */
-  public void reset() {
-    lastPicCount = picOffset = 0;
   }
 
   @VisibleForTesting(otherwise = VisibleForTesting.NONE)

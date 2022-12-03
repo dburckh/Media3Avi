@@ -17,6 +17,7 @@ package com.homesoft.exo.extractor.avi;
 
 import androidx.annotation.NonNull;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.TrackOutput;
 
@@ -34,6 +35,22 @@ public abstract class NalStreamHandler extends VideoStreamHandler {
   private transient int remaining;
   transient byte[] buffer;
   transient int pos;
+
+
+  /**
+   * True if we are using the picOrder data in the AVC stream
+   */
+  protected boolean usePicClock;
+  //The frame as a calculated from the picCount
+  @VisibleForTesting
+  int picOffset;
+  @VisibleForTesting
+  int lastPicCount;
+  @VisibleForTesting
+  int maxPicCount;
+  private int step = 2;
+  private int posHalf;
+  private int negHalf;
 
   NalStreamHandler(int id, long durationUs, @NonNull TrackOutput trackOutput,
                    int peakSize) {
@@ -137,5 +154,49 @@ public abstract class NalStreamHandler extends VideoStreamHandler {
     remaining = size - peekSize;
     processChunk(input, nalTypeOffset);
     input.resetPeekPosition();
+  }
+
+  /**
+   * Reset the clock
+   */
+  public void reset() {
+    lastPicCount = picOffset = 0;
+  }
+
+  @Override
+  public void seekPosition(long position) {
+    super.seekPosition(position);
+    reset();
+  }
+
+  @Override
+  protected void advanceTime() {
+    super.advanceTime();
+    if (usePicClock) {
+      picOffset--;
+    }
+  }
+
+  @Override
+  public long getTimeUs() {
+    return durationUs * (index + picOffset) / chunkIndex.getCount();
+  }
+
+  public void setMaxPicCount(int maxPicCount, int step) {
+    this.maxPicCount = maxPicCount;
+    this.step = step;
+    posHalf = maxPicCount / 2;
+    negHalf = -posHalf;
+  }
+
+  public void setPicCount(int picCount) {
+    int delta = picCount - lastPicCount;
+    if (delta < negHalf) {
+      delta += maxPicCount;
+    } else if (delta > posHalf) {
+      delta -= maxPicCount;
+    }
+    picOffset += delta / step;
+    lastPicCount = picCount;
   }
 }

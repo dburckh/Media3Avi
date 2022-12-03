@@ -81,6 +81,11 @@ public class Mp4vChunkPeekerTest {
     bitBuffer.push(4, Mp4VStreamHandler.Extended_PAR);
     bitBuffer.push(8, 16);
     bitBuffer.push(8, 9);
+    bitBuffer.push(false); // vol_control_parameters
+    bitBuffer.push(2, 0); // video_object_layer_shape
+    bitBuffer.push(true); // marker_bit
+    bitBuffer.push(16, 24); // vop_time_increment_resolution
+
     final byte bytes[] = bitBuffer.getBytes();
     byteBuffer.put(bytes);
 

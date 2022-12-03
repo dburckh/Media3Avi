@@ -23,7 +23,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class NalChunkPeekerTest {
+public class NalStreamHandlerTest {
   @Test
   public void construct_givenTooSmallPeekSize() {
     try {
@@ -67,5 +67,45 @@ public class NalChunkPeekerTest {
     } catch (IOException e) {
       Assert.fail(e.getMessage());
     }
+  }
+
+
+  @Test
+  public void us_givenTwoStepsForward() {
+    final MockNalStreamHandler nalStreamHandler = new MockNalStreamHandler(5, false);
+    nalStreamHandler.setMaxPicCount(16*2, 2);
+    nalStreamHandler.setPicCount(2*2);
+    Assert.assertEquals(nalStreamHandler.getChunkTimeUs(2), nalStreamHandler.getTimeUs());
+  }
+
+  @Test
+  public void us_givenThreeStepsBackwards() {
+    final MockNalStreamHandler nalStreamHandler = new MockNalStreamHandler(5, false);
+    nalStreamHandler.setMaxPicCount(16*2, 2);
+    nalStreamHandler.setPicCount(4*2); // 400ms
+    Assert.assertEquals(nalStreamHandler.getChunkTimeUs(4), nalStreamHandler.getTimeUs());
+    nalStreamHandler.setPicCount(1*2);
+    Assert.assertEquals(nalStreamHandler.getChunkTimeUs(1), nalStreamHandler.getTimeUs());
+  }
+
+  @Test
+  public void setIndex_given3Chunks() {
+    final MockNalStreamHandler nalStreamHandler = new MockNalStreamHandler(5, false);
+    nalStreamHandler.picOffset = 3;
+    Assert.assertEquals(nalStreamHandler.getChunkTimeUs(3), nalStreamHandler.getTimeUs());
+  }
+
+  @Test
+  public void us_giveWrapBackwards() {
+    final MockNalStreamHandler nalStreamHandler = new MockNalStreamHandler(5, false);
+    nalStreamHandler.setMaxPicCount(16*2, 2);
+    //Need to walk up no faster than maxPicCount / 2
+    nalStreamHandler.setPicCount(7*2);
+    nalStreamHandler.setPicCount(11*2);
+    nalStreamHandler.setPicCount(15*2);
+    nalStreamHandler.setPicCount(1*2);
+    Assert.assertEquals(nalStreamHandler.getChunkTimeUs(17), nalStreamHandler.getTimeUs());
+    nalStreamHandler.setPicCount(14*2);
+    Assert.assertEquals(nalStreamHandler.getChunkTimeUs(14), nalStreamHandler.getTimeUs());
   }
 }
