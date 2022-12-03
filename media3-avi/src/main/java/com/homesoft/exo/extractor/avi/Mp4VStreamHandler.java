@@ -24,7 +24,7 @@ import androidx.media3.extractor.ParsableNalUnitBitArray;
 import androidx.media3.extractor.TrackOutput;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Peeks an MP4V stream looking for pixelWidthHeightRatio data
@@ -51,7 +51,9 @@ public class Mp4VStreamHandler extends NalStreamHandler {
   float pixelWidthHeightRatio = 1f;
   boolean bFrames;
   int vopCodingType;
-  private final ArrayList<Integer> sizeList = new ArrayList<>(3);
+  // Observation: Usually only 2 B-Frames + 1 P-Frame
+  private int[] sizes = new int[4];
+  private int sizeCount;
   int queuedBytes = 0;
 
   public Mp4VStreamHandler(int id, long durationUs, @NonNull TrackOutput trackOutput,
@@ -66,12 +68,15 @@ public class Mp4VStreamHandler extends NalStreamHandler {
   }
 
   private void queueFrame(int size) {
-    sizeList.add(size);
+    sizes[sizeCount++] = size;
+    if (sizeCount == sizes.length) {
+      sizes = Arrays.copyOf(sizes, sizeCount * 3 / 2);
+    }
     queuedBytes+= size;
   }
 
   private void sendQueuedMetadata(int sizeIndex, int chunkOffset) {
-    final int size = sizeList.get(sizeIndex);
+    final int size = sizes[sizeIndex];
     queuedBytes -= size;
     trackOutput.sampleMetadata(getChunkTimeUs(index + chunkOffset - 1), 0, size,
             queuedBytes, null);
@@ -81,24 +86,24 @@ public class Mp4VStreamHandler extends NalStreamHandler {
    * Send all the metadata we've queued up
    */
   private void sendQueuedMetadata(int currentFrameSize) {
-    if (sizeList.isEmpty()) {
+    if (sizeCount == 0) {
       return;
     }
     // Need to add the bytes we just sent to calc the offset correctly
     queuedBytes += currentFrameSize;
     // Send the initial P frame in the future
-    sendQueuedMetadata(0, sizeList.size());
+    sendQueuedMetadata(0, sizeCount);
     // Send the B-Frames in order
-    for (int i=1;i<sizeList.size();i++) {
+    for (int i=1;i<sizeCount;i++) {
       sendQueuedMetadata(i, i);
     }
     //Advance the clock
-    index += sizeList.size();
+    index += sizeCount;
     reset();
   }
 
   private void reset() {
-    sizeList.clear();
+    sizeCount = 0;
     queuedBytes = 0;
   }
 
