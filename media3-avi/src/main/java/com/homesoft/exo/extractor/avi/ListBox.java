@@ -30,7 +30,7 @@ import java.util.List;
 public class ListBox extends BoxReader implements Box {
     final private int type;
     private final ArrayList<Box> list = new ArrayList<>();
-    static final int LIST = 0x5453494c; // LIST
+    public static final int LIST = 0x5453494c; // LIST
     public static final int TYPE_HDRL = 0x6c726468; // hdrl - Header List
     public static final int TYPE_STRL = 0x6c727473; // strl - Stream List
     public static final int TYPE_ODML = 0x6C6D646F; // odlm - OpenDML List

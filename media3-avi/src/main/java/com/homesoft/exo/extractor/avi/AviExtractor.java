@@ -347,7 +347,7 @@ public class AviExtractor implements Extractor {
     return null;
   }
 
-  void createStreamHandler(ListBox headerListBox) {
+  void createStreamHandlers(ListBox headerListBox) {
     final AviHeaderBox aviHeader = headerListBox.getChild(AviHeaderBox.class);
     if (aviHeader == null) {
       throw new IllegalArgumentException("Expected AviHeader in header ListBox");
@@ -404,18 +404,8 @@ public class AviExtractor implements Extractor {
     }
     if (reader.read(input)) {
       readerStack.remove(reader);
-      if (reader instanceof ListBox && ((ListBox) reader).getType() == ListBox.TYPE_HDRL) {
-          createStreamHandler((ListBox)reader);
-      } else if (reader instanceof RootReader) {
-        //After the last RiffBox finishes process the OpenDML indexes
-        final List<IndexBox> indexBoxList = getIndexBoxList();
-        if (!indexBoxList.isEmpty()) {
-          final List<Long> list = new ArrayList<>();
-          for (IndexBox indexBox : indexBoxList) {
-            list.addAll(indexBox.getPositions());
-          }
-          readerStack.push(new IdxxBox(list));
-        }
+      if (reader instanceof Runnable) {
+        ((Runnable) reader).run();
       }
     }
     return RESULT_CONTINUE;
@@ -461,6 +451,7 @@ public class AviExtractor implements Extractor {
 
   /**
    * Queue the IReader to run next
+   * @param reader If the reader is Runnable, it will be run on completion
    */
   public void push(IReader reader) {
     readerStack.push(reader);
@@ -480,7 +471,7 @@ public class AviExtractor implements Extractor {
     return moviList.get(0).getStart();
   }
 
-  class RootReader extends BoxReader {
+  class RootReader extends BoxReader implements Runnable {
     private long size = Long.MIN_VALUE;
 
     RootReader() {
@@ -530,6 +521,19 @@ public class AviExtractor implements Extractor {
       push(riffReader);
       return advancePosition(CHUNK_HEADER_SIZE + headerPeeker.getSize());
     }
+
+    @Override
+    public void run() {
+      //After the last RiffBox finishes process the OpenDML indexes
+      final List<IndexBox> indexBoxList = getIndexBoxList();
+      if (!indexBoxList.isEmpty()) {
+        final List<Long> list = new ArrayList<>();
+        for (IndexBox indexBox : indexBoxList) {
+          list.addAll(indexBox.getPositions());
+        }
+        readerStack.push(new IdxxBox(list));
+      }
+    }
   }
 
   class RiffReader extends BoxReader {
@@ -554,8 +558,7 @@ public class AviExtractor implements Extractor {
               return true;
             }
           } else if (type == ListBox.TYPE_HDRL){
-            final ListBox listBox = new ListBox(position + PARENT_HEADER_SIZE, size - 4, type, readerStack);
-            readerStack.push(listBox);
+            readerStack.push(new HeaderListBox(position + PARENT_HEADER_SIZE, size - 4, readerStack));
           }
           break;
         case IDX1: {
@@ -662,6 +665,17 @@ public class AviExtractor implements Extractor {
     public String toString() {
       return "IdxxBox{positions=" + deque +
               "}";
+    }
+  }
+
+  class HeaderListBox extends ListBox implements Runnable {
+    public HeaderListBox(long position, int size, @NonNull Deque<IReader> readerStack) {
+      super(position, size, ListBox.TYPE_HDRL, readerStack);
+    }
+
+    @Override
+    public void run() {
+      createStreamHandlers(this);
     }
   }
 }

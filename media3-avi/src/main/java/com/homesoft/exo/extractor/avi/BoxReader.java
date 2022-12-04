@@ -15,7 +15,7 @@ import java.nio.ByteOrder;
 /**
  * Reads the Boxes(Chunks) contains within a parent Box
  */
-abstract class BoxReader implements IReader {
+public abstract class BoxReader implements IReader {
     public static final int CHUNK_HEADER_SIZE = 8;
     public static final int PARENT_HEADER_SIZE = 12;
     protected final HeaderPeeker headerPeeker = new HeaderPeeker();
