@@ -36,21 +36,10 @@ public abstract class NalStreamHandler extends VideoStreamHandler {
   transient byte[] buffer;
   transient int pos;
 
-
   /**
-   * True if we are using the picOrder data in the AVC stream
+   * True if we are using the clock data in the stream
    */
-  protected boolean usePicClock;
-  //The frame as a calculated from the picCount
-  @VisibleForTesting
-  int picOffset;
-  @VisibleForTesting
-  int lastPicCount;
-  @VisibleForTesting
-  int maxPicCount;
-  private int step = 2;
-  private int posHalf;
-  private int negHalf;
+  protected boolean useStreamClock;
 
   NalStreamHandler(int id, long durationUs, @NonNull TrackOutput trackOutput,
                    int peakSize) {
@@ -59,6 +48,14 @@ public abstract class NalStreamHandler extends VideoStreamHandler {
       throw new IllegalArgumentException("Peak size must at least be 5");
     }
     this.peekSize = peakSize;
+  }
+
+  @Override
+  public void seekPosition(long position) {
+    super.seekPosition(position);
+    if (useStreamClock) {
+      reset();
+    }
   }
 
   abstract void processChunk(ExtractorInput input, int nalTypeOffset) throws IOException;
@@ -132,6 +129,8 @@ public abstract class NalStreamHandler extends VideoStreamHandler {
 
   abstract boolean skip(byte nalType);
 
+  abstract void reset();
+
   @Override
   public boolean read(@NonNull ExtractorInput input) throws IOException {
     if (readSize == readRemaining) {
@@ -154,49 +153,5 @@ public abstract class NalStreamHandler extends VideoStreamHandler {
     remaining = size - peekSize;
     processChunk(input, nalTypeOffset);
     input.resetPeekPosition();
-  }
-
-  /**
-   * Reset the clock
-   */
-  public void reset() {
-    lastPicCount = picOffset = 0;
-  }
-
-  @Override
-  public void seekPosition(long position) {
-    super.seekPosition(position);
-    reset();
-  }
-
-  @Override
-  protected void advanceTime() {
-    super.advanceTime();
-    if (usePicClock) {
-      picOffset--;
-    }
-  }
-
-  @Override
-  public long getTimeUs() {
-    return durationUs * (index + picOffset) / chunkIndex.getCount();
-  }
-
-  public void setMaxPicCount(int maxPicCount, int step) {
-    this.maxPicCount = maxPicCount;
-    this.step = step;
-    posHalf = maxPicCount / 2;
-    negHalf = -posHalf;
-  }
-
-  public void setPicCount(int picCount) {
-    int delta = picCount - lastPicCount;
-    if (delta < negHalf) {
-      delta += maxPicCount;
-    } else if (delta > posHalf) {
-      delta -= maxPicCount;
-    }
-    picOffset += delta / step;
-    lastPicCount = picCount;
   }
 }

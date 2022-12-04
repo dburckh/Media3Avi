@@ -37,4 +37,8 @@ public class MockNalStreamHandler extends NalStreamHandler {
   boolean skip(byte nalType) {
     return skip;
   }
+
+  @Override
+  void reset() {
+  }
 }

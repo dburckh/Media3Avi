@@ -18,6 +18,7 @@ package com.homesoft.exo.extractor.avi;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ParsableNalUnitBitArray;
@@ -39,6 +40,8 @@ public class Mp4VStreamHandler extends NalStreamHandler {
 
   private static final byte SIMPLE_PROFILE_MASK = 0b1111;
   private static final int SHAPE_TYPE_GRAYSCALE = 3;
+  private static final int VOP_TYPE_B = 2;
+
   @VisibleForTesting
   static final int Extended_PAR = 0xf;
 
@@ -46,7 +49,14 @@ public class Mp4VStreamHandler extends NalStreamHandler {
 
   @VisibleForTesting()
   float pixelWidthHeightRatio = 1f;
+
   int vopTimeIncrementBits;
+  int vopTimeIncrementResolution;
+
+  long clockOffsetUs;
+  long frameOffsetUs;
+  // modulo_time_base from the last I/P frame, used to calculate the time offset of B-frames
+  int priorModulo;
 
   public Mp4VStreamHandler(int id, long durationUs, @NonNull TrackOutput trackOutput,
                            @NonNull Format.Builder formatBuilder) {
@@ -56,7 +66,28 @@ public class Mp4VStreamHandler extends NalStreamHandler {
 
   @Override
   boolean skip(byte nalType) {
-    return nalType != SEQUENCE_START_CODE && (!usePicClock || nalType != VOP_START_CODE);
+    return nalType != SEQUENCE_START_CODE && (!useStreamClock || nalType != VOP_START_CODE);
+  }
+
+  @Override
+  void reset() {
+    clockOffsetUs = frameOffsetUs = 0L;
+  }
+
+  @Override
+  public long getTimeUs() {
+    if (useStreamClock) {
+      return super.getTimeUs() + frameOffsetUs;
+    } else {
+      return super.getTimeUs();
+    }
+  }
+
+  @Override
+  protected void advanceTime() {
+    if (!useStreamClock) {
+      super.advanceTime();
+    }
   }
 
   void readMarkerBit(@NonNull final ParsableNalUnitBitArray in) {
@@ -102,36 +133,48 @@ public class Mp4VStreamHandler extends NalStreamHandler {
       in.skipBits(4); //video_object_layer_shape_extension
     }
     readMarkerBit(in);
-    int vop_time_increment_resolution = in.readBits(16);
-    vopTimeIncrementBits = (int)((Math.log(vop_time_increment_resolution) / Math.log(2))) + 1;
-    setMaxPicCount(vop_time_increment_resolution , 1);
+    vopTimeIncrementResolution = in.readBits(16);
+    vopTimeIncrementBits = (int)((Math.log(vopTimeIncrementResolution) / Math.log(2))) + 1;
   }
 
   void parseVideoObjectPlane(int nalTypeOffset) {
     final ParsableNalUnitBitArray in = new ParsableNalUnitBitArray(buffer, nalTypeOffset + 1, buffer.length);
-    in.skipBits(2); //vop_coding_type - 0 = I, 1 = P, 2 = B
-    //modulo_time_base;
-    while (in.readBit()) {}
+    final int vop_coding_type = in.readBits(2);
+    // Usually this is 0, but on clock advance is 1
+    int modulo_time_base=0;
+    while (in.readBit()) {
+      modulo_time_base++;
+    }
     readMarkerBit(in);
     int vop_time_increment = in.readBits(vopTimeIncrementBits);
-    setPicCount(vop_time_increment);
+    if (vop_coding_type == VOP_TYPE_B) {
+      if (priorModulo != modulo_time_base) {
+        vop_time_increment -= (priorModulo - modulo_time_base) * vopTimeIncrementResolution;
+      }
+    } else {
+      priorModulo = modulo_time_base;
+      if (modulo_time_base != 0) {
+        clockOffsetUs += modulo_time_base * C.MICROS_PER_SECOND;
+      }
+    }
+    frameOffsetUs = clockOffsetUs + C.MICROS_PER_SECOND * vop_time_increment / vopTimeIncrementResolution;
   }
 
   @Override
   void processChunk(ExtractorInput input, int nalTypeOffset) throws IOException {
     while (true) {
       final byte nalType = buffer[nalTypeOffset];
-      if (usePicClock && nalType == VOP_START_CODE) {
+      if (useStreamClock && nalType == VOP_START_CODE) {
         parseVideoObjectPlane(nalTypeOffset);
         break;
       } else if (nalType == SEQUENCE_START_CODE) {
         final byte profile_and_level_indication = buffer[nalTypeOffset + 1];
-        usePicClock = (profile_and_level_indication & SIMPLE_PROFILE_MASK) != profile_and_level_indication;
+        useStreamClock = (profile_and_level_indication & SIMPLE_PROFILE_MASK) != profile_and_level_indication;
       } else if ((nalType & 0xf0) == LAYER_START_CODE) {
         seekNextNal(input, nalTypeOffset);
         parseVideoObjectLayer(nalTypeOffset);
         // There may be a VOP start code after this NAL, so if we are tracking B frames, don't exit
-        if (!usePicClock) {
+        if (!useStreamClock) {
           break;
         }
       }

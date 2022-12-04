@@ -50,6 +50,7 @@ public class AvcStreamHandlerTest {
     avcChunkHandler = new AvcStreamHandler(0, 10_000_000L, fakeTrackOutput,
         FORMAT_BUILDER_AVC);
     avcChunkHandler.setFps(DataHelper.FPS);
+    avcChunkHandler.useStreamClock = true;
   }
 
   private void peekStreamHeader() throws IOException {
@@ -79,5 +80,40 @@ public class AvcStreamHandlerTest {
     avcChunkHandler.read(input);
 
     Assert.assertEquals(12, avcChunkHandler.lastPicCount);
+  }
+
+  @Test
+  public void us_givenTwoStepsForward() {
+    avcChunkHandler.setMaxPicCount(16*2, 2);
+    avcChunkHandler.setPicCount(2*2);
+    Assert.assertEquals(avcChunkHandler.getChunkTimeUs(2), avcChunkHandler.getTimeUs());
+  }
+
+  @Test
+  public void us_givenThreeStepsBackwards() {
+    avcChunkHandler.setMaxPicCount(16*2, 2);
+    avcChunkHandler.setPicCount(4*2); // 400ms
+    Assert.assertEquals(avcChunkHandler.getChunkTimeUs(4), avcChunkHandler.getTimeUs());
+    avcChunkHandler.setPicCount(1*2);
+    Assert.assertEquals(avcChunkHandler.getChunkTimeUs(1), avcChunkHandler.getTimeUs());
+  }
+
+  @Test
+  public void setIndex_given3Chunks() {
+    avcChunkHandler.picOffset = 3;
+    Assert.assertEquals(avcChunkHandler.getChunkTimeUs(3), avcChunkHandler.getTimeUs());
+  }
+
+  @Test
+  public void us_giveWrapBackwards() {
+    avcChunkHandler.setMaxPicCount(16*2, 2);
+    //Need to walk up no faster than maxPicCount / 2
+    avcChunkHandler.setPicCount(7*2);
+    avcChunkHandler.setPicCount(11*2);
+    avcChunkHandler.setPicCount(15*2);
+    avcChunkHandler.setPicCount(1*2);
+    Assert.assertEquals(avcChunkHandler.getChunkTimeUs(17), avcChunkHandler.getTimeUs());
+    avcChunkHandler.setPicCount(14*2);
+    Assert.assertEquals(avcChunkHandler.getChunkTimeUs(14), avcChunkHandler.getTimeUs());
   }
 }

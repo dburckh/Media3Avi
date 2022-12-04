@@ -42,6 +42,17 @@ public class AvcStreamHandler extends NalStreamHandler {
   private float pixelWidthHeightRatio = 1f;
   private NalUnitUtil.SpsData spsData;
 
+  //The frame as a calculated from the picCount
+  @VisibleForTesting
+  int picOffset;
+  @VisibleForTesting
+  int lastPicCount;
+  @VisibleForTesting
+  int maxPicCount;
+  private int step = 2;
+  private int posHalf;
+  private int negHalf;
+
   public AvcStreamHandler(int id, long durationUs, @NonNull TrackOutput trackOutput,
                            Format.Builder formatBuilder) {
     super(id, durationUs, trackOutput,  16);
@@ -51,7 +62,7 @@ public class AvcStreamHandler extends NalStreamHandler {
 
   @Override
   boolean skip(byte nalType) {
-    if (usePicClock) {
+    if (useStreamClock) {
       return false;
     } else {
       //If the clock is ChunkClock, skip "normal" frames
@@ -95,11 +106,11 @@ public class AvcStreamHandler extends NalStreamHandler {
     nalTypeOffset = seekNextNal(input, spsStart);
     spsData = NalUnitUtil.parseSpsNalUnitPayload(buffer, spsStart, pos);
     //If we can have B Frames, upgrade to PicCountClock
-    if (spsData.maxNumRefFrames > 1 && !usePicClock) {
-      usePicClock = true;
+    if (spsData.maxNumRefFrames > 1 && !useStreamClock) {
+      useStreamClock = true;
       reset();
     }
-    if (usePicClock) {
+    if (useStreamClock) {
       if (spsData.picOrderCountType == 0) {
         setMaxPicCount(1 << spsData.picOrderCntLsbLength, 2);
       } else if (spsData.picOrderCountType == 2) {
@@ -124,12 +135,12 @@ public class AvcStreamHandler extends NalStreamHandler {
         case 2:
         case 3:
         case 4:
-          if (usePicClock) {
+          if (useStreamClock) {
             updatePicCountClock(nalTypeOffset);
           }
           return;
         case NAL_TYPE_IDR:
-          if (usePicClock) {
+          if (useStreamClock) {
             reset();
           }
           return;
@@ -157,5 +168,48 @@ public class AvcStreamHandler extends NalStreamHandler {
   @VisibleForTesting(otherwise = VisibleForTesting.NONE)
   public NalUnitUtil.SpsData getSpsData() {
     return spsData;
+  }
+
+  /**
+   * Reset the clock
+   */
+  @Override
+  public void reset() {
+    lastPicCount = picOffset = 0;
+  }
+
+  @Override
+  protected void advanceTime() {
+    super.advanceTime();
+    if (useStreamClock) {
+      picOffset--;
+    }
+  }
+
+  @Override
+  public long getTimeUs() {
+    if (useStreamClock) {
+      return getChunkTimeUs(index + picOffset);
+    } else {
+      return super.getTimeUs();
+    }
+  }
+
+  public void setMaxPicCount(int maxPicCount, int step) {
+    this.maxPicCount = maxPicCount;
+    this.step = step;
+    posHalf = maxPicCount / 2;
+    negHalf = -posHalf;
+  }
+
+  public void setPicCount(int picCount) {
+    int delta = picCount - lastPicCount;
+    if (delta < negHalf) {
+      delta += maxPicCount;
+    } else if (delta > posHalf) {
+      delta -= maxPicCount;
+    }
+    picOffset += delta / step;
+    lastPicCount = picCount;
   }
 }
