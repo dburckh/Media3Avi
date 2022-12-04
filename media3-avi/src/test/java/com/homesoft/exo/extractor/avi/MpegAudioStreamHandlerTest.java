@@ -48,25 +48,6 @@ public class MpegAudioStreamHandlerTest {
     }
   }
 
-//  @Test
-//  public void newChunk_givenNonMpegData() throws IOException {
-//    final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(new byte[1024]).
-//        build();
-//
-//    mpegAudioChunkHandler.setRead(0L,(int)input.getLength());
-//    mpegAudioChunkHandler.read(input);
-//    Assert.assertEquals(1024, fakeTrackOutput.getSampleData(0).length);
-//    Assert.assertEquals(CHUNK_MS, mpegAudioChunkHandler.getTimeUs());
-//  }
-//  @Test
-//  public void newChunk_givenEmptyChunk() throws IOException {
-//    final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(new byte[0]).
-//        build();
-//    mpegAudioChunkHandler.setRead(0L,(int)input.getLength());
-//    mpegAudioChunkHandler.read(input);
-//    Assert.assertEquals(C.MICROS_PER_SECOND / 24, mpegAudioChunkHandler.getTimeUs());
-//  }
-
   @Test
   public void newChunk_givenSingleFrame() throws IOException {
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(mp3Frame).build();

@@ -129,13 +129,6 @@ public class DataHelper {
     return videoStreamHandler;
   }
 
-//  public static StreamHandler getAudioChunkHandler(int sec) {
-//    final FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
-//    AudioStreamHandler audioStreamHandler = new AudioStreamHandler(AUDIO_ID, sec * 1_000_000L, fakeTrackOutput);
-//    audioStreamHandler.
-//        new ChunkClock(sec * 1_000_000L, sec * FPS * AUDIO_PER_VIDEO));
-//  }
-
   public static AviSeekMap getAviSeekMap() {
     return getAviSeekMap(getVideoChunkHandler(10));
   }
