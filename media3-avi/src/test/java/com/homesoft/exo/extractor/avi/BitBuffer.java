@@ -58,7 +58,7 @@ public class BitBuffer {
     push(bits, i + 1);
   }
 
-  public byte[] getBytes() {
+  public byte[] toByteArray() {
     //Byte align
     grow(8 - bits % 8);
     final int count = bits / 8;

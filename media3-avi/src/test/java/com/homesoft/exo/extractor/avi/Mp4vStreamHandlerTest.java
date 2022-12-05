@@ -32,10 +32,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 @RunWith(AndroidJUnit4.class)
-public class Mp4vChunkPeekerTest {
+public class Mp4vStreamHandlerTest {
+  private static final int VOP_TYPE_P = 1;
 
-  private ByteBuffer makeSequence() {
-    return DataHelper.appendNal(AviExtractor.allocate(32), Mp4VStreamHandler.SEQUENCE_START_CODE);
+  private ByteBuffer makeSequence(int size) {
+    return DataHelper.appendNal(AviExtractor.allocate(size), Mp4VStreamHandler.SEQUENCE_START_CODE);
   }
 
   private static Mp4VStreamHandler getStreamHandler() {
@@ -48,7 +49,7 @@ public class Mp4vChunkPeekerTest {
 
   @Test
   public void peek_givenNoSequence() throws IOException {
-    ByteBuffer byteBuffer = makeSequence();
+    ByteBuffer byteBuffer = makeSequence(32);
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array())
             .build();
     Mp4VStreamHandler mp4VStreamHandler = getStreamHandler();
@@ -67,9 +68,8 @@ public class Mp4vChunkPeekerTest {
     Assert.assertEquals(1.2121212, mp4vChunkPeeker.pixelWidthHeightRatio, 0.01);
   }
 
-  @Test
-  public void peek_givenCustomAspectRatio() throws IOException {
-    ByteBuffer byteBuffer = makeSequence();
+  private ByteBuffer createStreamHeader(int size) {
+    ByteBuffer byteBuffer = makeSequence(size);
     byteBuffer.putInt(0x5555);
     DataHelper.appendNal(byteBuffer, (byte) Mp4VStreamHandler.LAYER_START_CODE);
 
@@ -85,14 +85,67 @@ public class Mp4vChunkPeekerTest {
     bitBuffer.push(2, 0); // video_object_layer_shape
     bitBuffer.push(true); // marker_bit
     bitBuffer.push(16, 24); // vop_time_increment_resolution
+    bitBuffer.push(true); // marker_bit
 
-    final byte bytes[] = bitBuffer.getBytes();
-    byteBuffer.put(bytes);
+    byteBuffer.put(bitBuffer.toByteArray());
+    return byteBuffer;
+  }
+
+  @Test
+  public void peek_givenCustomAspectRatio() throws IOException {
+    final ByteBuffer byteBuffer = createStreamHeader(32);
 
     final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array())
         .build();
     final Mp4VStreamHandler mp4vChunkPeeker = getStreamHandler();
     mp4vChunkPeeker.peek(input, (int) input.getLength());
     Assert.assertEquals(16f/9f, mp4vChunkPeeker.pixelWidthHeightRatio, 0.01);
+  }
+
+  private int appendFrame(final ByteBuffer byteBuffer, int vopType, int modulo, int clock) {
+    final int inPos = byteBuffer.position();
+    DataHelper.appendNal(byteBuffer, Mp4VStreamHandler.VOP_START_CODE);
+    final BitBuffer bitBuffer = new BitBuffer();
+    bitBuffer.push(2, vopType);
+    for (int i=0;i<modulo;i++) {
+      bitBuffer.push(true);
+    }
+    bitBuffer.push(false);
+    bitBuffer.push(true); //marker_bit
+    bitBuffer.push(5, clock);
+
+    byteBuffer.put(bitBuffer.toByteArray());
+    return byteBuffer.position() - inPos;
+  }
+
+  @Test
+  public void getTimeUs_givenBFrameStream() throws IOException {
+    final ByteBuffer byteBuffer = createStreamHeader(1024);
+
+    appendFrame(byteBuffer, VOP_TYPE_P, 0, 22);
+    byteBuffer.position(64);
+    appendFrame(byteBuffer, VOP_TYPE_P, 1, 1);
+    byteBuffer.position(128);
+    appendFrame(byteBuffer, Mp4VStreamHandler.VOP_TYPE_B, 0, 23);
+    byteBuffer.position(128 + 64);
+    appendFrame(byteBuffer, Mp4VStreamHandler.VOP_TYPE_B, 1, 0);
+
+    final FakeExtractorInput input = new FakeExtractorInput.Builder().setData(byteBuffer.array())
+            .build();
+
+    final Mp4VStreamHandler mp4vChunkPeeker = getStreamHandler();
+    mp4vChunkPeeker.setRead(0, 64);
+    mp4vChunkPeeker.read(input);
+    Assert.assertEquals(mp4vChunkPeeker.getChunkTimeUs(22), mp4vChunkPeeker.getTimeUs());
+    mp4vChunkPeeker.setRead(64, 64);
+    mp4vChunkPeeker.read(input);
+    Assert.assertEquals(mp4vChunkPeeker.getChunkTimeUs(24 + 1), mp4vChunkPeeker.getTimeUs());
+    mp4vChunkPeeker.setRead(128, 64);
+    mp4vChunkPeeker.read(input);
+    Assert.assertEquals(mp4vChunkPeeker.getChunkTimeUs(23), mp4vChunkPeeker.getTimeUs());
+
+    mp4vChunkPeeker.setRead(128 + 64, 64);
+    mp4vChunkPeeker.read(input);
+    Assert.assertEquals(mp4vChunkPeeker.getChunkTimeUs(24), mp4vChunkPeeker.getTimeUs());
   }
 }

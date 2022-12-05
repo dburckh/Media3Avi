@@ -40,7 +40,7 @@ public class Mp4VStreamHandler extends NalStreamHandler {
 
   private static final byte SIMPLE_PROFILE_MASK = 0b1111;
   private static final int SHAPE_TYPE_GRAYSCALE = 3;
-  private static final int VOP_TYPE_B = 2;
+  static final int VOP_TYPE_B = 2;
 
   @VisibleForTesting
   static final int Extended_PAR = 0xf;
@@ -147,9 +147,11 @@ public class Mp4VStreamHandler extends NalStreamHandler {
     }
     readMarkerBit(in);
     int vop_time_increment = in.readBits(vopTimeIncrementBits);
+    long frameUs = C.MICROS_PER_SECOND * vop_time_increment / vopTimeIncrementResolution;
     if (vop_coding_type == VOP_TYPE_B) {
       if (priorModulo != modulo_time_base) {
-        vop_time_increment -= (priorModulo - modulo_time_base) * vopTimeIncrementResolution;
+        // Subtract the modulo delta from the clock offset.
+        frameUs -= (priorModulo - modulo_time_base) * C.MICROS_PER_SECOND;
       }
     } else {
       priorModulo = modulo_time_base;
@@ -157,7 +159,7 @@ public class Mp4VStreamHandler extends NalStreamHandler {
         clockOffsetUs += modulo_time_base * C.MICROS_PER_SECOND;
       }
     }
-    frameOffsetUs = clockOffsetUs + C.MICROS_PER_SECOND * vop_time_increment / vopTimeIncrementResolution;
+    frameOffsetUs = clockOffsetUs + frameUs;
   }
 
   @Override
@@ -171,10 +173,14 @@ public class Mp4VStreamHandler extends NalStreamHandler {
         final byte profile_and_level_indication = buffer[nalTypeOffset + 1];
         useStreamClock = (profile_and_level_indication & SIMPLE_PROFILE_MASK) != profile_and_level_indication;
       } else if ((nalType & 0xf0) == LAYER_START_CODE) {
+        //Read the whole NAL into the buffer
         seekNextNal(input, nalTypeOffset);
         parseVideoObjectLayer(nalTypeOffset);
         // There may be a VOP start code after this NAL, so if we are tracking B frames, don't exit
-        if (!useStreamClock) {
+        if (useStreamClock) {
+          // Due to seekNextNal() above the pointer should be at the next NAL offset
+          nalTypeOffset = 0;
+        } else {
           break;
         }
       }
