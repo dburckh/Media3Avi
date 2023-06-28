@@ -21,4 +21,10 @@ public class BitmapDecoderOutputBuffer extends VideoDecoderOutputBuffer {
     public void setBitmap(@Nullable Bitmap bitmap) {
         this.bitmap = bitmap;
     }
+
+    @Override
+    public void release() {
+        super.release();
+        setBitmap(null);
+    }
 }

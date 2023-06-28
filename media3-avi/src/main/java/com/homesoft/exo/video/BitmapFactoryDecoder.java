@@ -12,13 +12,20 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.ArrayBlockingQueue;
 
 public class BitmapFactoryDecoder extends SimpleDecoder<DecoderInputBuffer, BitmapDecoderOutputBuffer, DecoderException> {
     private static final String TAG = "BitmapFactoryDecoder";
+    private final ArrayBlockingQueue<Bitmap> bitmapQueue;
     private volatile @C.VideoOutputMode int outputMode;
 
     protected BitmapFactoryDecoder(int buffers) {
         super(new DecoderInputBuffer[buffers], new BitmapDecoderOutputBuffer[buffers]);
+        bitmapQueue = new ArrayBlockingQueue<>(buffers);
+    }
+
+    public void recycle(@NonNull Bitmap bitmap) {
+        bitmapQueue.offer(bitmap);
     }
 
     @NonNull
@@ -59,7 +66,8 @@ public class BitmapFactoryDecoder extends SimpleDecoder<DecoderInputBuffer, Bitm
         ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
         final BitmapFactory.Options opts = new BitmapFactory.Options();
         opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
-        opts.inBitmap = outputBuffer.getBitmap();
+        opts.inMutable = true;
+        opts.inBitmap = bitmapQueue.poll();
         opts.inJustDecodeBounds = inputBuffer.isDecodeOnly() || outputMode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV;
         final Bitmap bitmap = BitmapFactory.decodeByteArray(inputData.array(), inputData.arrayOffset(), inputData.limit(), opts);
         if (bitmap == null || opts.inJustDecodeBounds) {

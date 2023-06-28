@@ -59,6 +59,7 @@ public class BitmapFactoryVideoRenderer extends DecoderVideoRenderer {
                 rect.set(0,0,canvas.getWidth(), canvas.getHeight());
                 canvas.drawBitmap(bitmap, null, rect, null);
                 surface.unlockCanvasAndPost(canvas);
+                decoder.recycle(bitmap);
             }
         }
         outputBuffer.release();
