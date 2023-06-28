@@ -9,8 +9,8 @@ task clean(type: Delete) {
 }
 ext {
     groupId = 'com.homesoft.android'
-    artifactId = 'media3avi'
-    artifactVersion = '2.1.2'
+    artifactId = 'media3-avi'
+    artifactVersion = '2.2.1'
 
-    media3_version = "1.0.1"
+    media3_version = "1.0.2"
 }
