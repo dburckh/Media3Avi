@@ -39,6 +39,9 @@ public class VideoFormat {
     //Samsung seems to support the rare MP43.
     STREAM_MAP.put(0x3334504d, MimeTypes.VIDEO_MP43); // MP43
     STREAM_MAP.put(0x34363248, MimeTypes.VIDEO_H264); // H264
+    STREAM_MAP.put(0x34363268, MimeTypes.VIDEO_H264); // h264
+    STREAM_MAP.put(0x34363258, MimeTypes.VIDEO_H264); // X264
+    STREAM_MAP.put(0x34363278, MimeTypes.VIDEO_H264); // x264
     STREAM_MAP.put(0x31637661, MimeTypes.VIDEO_H264); // avc1
     STREAM_MAP.put(0x31435641, MimeTypes.VIDEO_H264); // AVC1
     STREAM_MAP.put(0x44495633, mimeType); // 3VID
