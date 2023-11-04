@@ -5,7 +5,8 @@ Port of my original AVI library to support Media3.  Although ExoPlayer/Media3 no
 
 ## Usage
 - Add Media3 to your app as described.  https://developer.android.com/jetpack/androidx/releases/media3
-- Add the media3-avi library to your project (currently source only, no .aar)
+- Add the dependencies to your project.  See Using the Artifact for details.
+  - Or just add the AAR as a module.
 
 Construct ExoPlayer with these options: 
 
@@ -33,6 +34,32 @@ ExoPlayer exoPlayer = new ExoPlayer.Builder(context)
 - MP4V ASP (Xvid/Divx) support varies a lot by manufacturer.  Pixel devices generally have limited support, where Samsung/Moto seem to have better support.
 - MS MP4V (fourCC: MP42) is common in Avi files, but is not supported by any Android device I've found. 
 - AC3/DTS are common in Avi files, but many devices (Pixels) don't support these.  You can build the ffmpeg audio extension for support on these devices.  See Media3/ExoPlayer docs for more. 
+
+## Using the artifact
+On the surface, this is as easy as:
+
+`implementation 'com.homesoft.android:media3-avi:2.2.1'`
+
+Unfortunately, you also need to add GitHub Packages to your base project build.gradle, which is kind of a pain.  You'll need to add this to your root project build.gradle.
+```groovy
+allprojects {
+    repositories {
+        ...
+        maven {
+            url = 'https://maven.pkg.github.com/dburckh/Media3Avi'
+            credentials {
+                username = System.getenv("GPR_USER")
+                //This password expires, so it will need to updated in environment
+                password = System.getenv("GPR_API_KEY")
+            }
+        }
+    }
+}
+```
+You'll also need to set your GitHub Id into an environment variable called GPR_USER and put your GitHub token in GPR_API_KEY
+
+Might just be easier to download it.  I won't judge.  :)
+[Link](https://github.com/dburckh/Media3Avi/packages/1889744)
 
 ### Change Log
 2.2.1
