@@ -36,32 +36,27 @@ ExoPlayer exoPlayer = new ExoPlayer.Builder(context)
 - AC3/DTS are common in Avi files, but many devices (Pixels) don't support these.  You can build the ffmpeg audio extension for support on these devices.  See Media3/ExoPlayer docs for more. 
 
 ## Using the artifact
-On the surface, this is as easy as:
+Important:  Version 2.3.0 on will be using jitpack.io.  As such, there is a new artifact ID.
 
-`implementation 'com.homesoft.android:media3-avi:2.2.1'`
+`implementation 'com.github.dburckh:Media3Avi:2.3.0'`
 
-Unfortunately, you also need to add GitHub Packages to your base project build.gradle, which is kind of a pain.  You'll need to add this to your root project build.gradle.
+You will need to update your setting.gradle as below.  More here: https://jitpack.io/#dburckh/Media3Avi
 ```groovy
-allprojects {
-    repositories {
-        ...
-        maven {
-            url = 'https://maven.pkg.github.com/dburckh/Media3Avi'
-            credentials {
-                username = System.getenv("GPR_USER")
-                //This password expires, so it will need to updated in environment
-                password = System.getenv("GPR_API_KEY")
-            }
-        }
-    }
+dependencyResolutionManagement {
+  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+  repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+  }
 }
 ```
-You'll also need to set your GitHub Id into an environment variable called GPR_USER and put your GitHub token in GPR_API_KEY
-
-Might just be easier to download it.  I won't judge.  :)
-[Link](https://github.com/dburckh/Media3Avi/packages/1889744)
+Upgraders should remove the references to 'maven.pkg.github.com/dburckh' in your root build.gradle.  You will no longer require GPR_USER/GPR_API_KEY environment variables either.
 
 ### Change Log
+2.3.0
+- Update to AndroidX Media 1.1.1
+- Support jitpack.io
+
 2.2.1
 - Add more H264 FOURCCs
 - Work-around race issue with BitmapFactoryVideoRenderer
