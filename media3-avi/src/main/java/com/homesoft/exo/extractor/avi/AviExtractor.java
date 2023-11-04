@@ -246,7 +246,8 @@ public class AviExtractor implements Extractor {
           builder.setPcmEncoding(C.ENCODING_PCM_16BIT);
         }
       }
-      if (MimeTypes.AUDIO_AAC.equals(mimeType) && audioFormat.getCbSize() > 0) {
+      if ((MimeTypes.AUDIO_AAC.equals(mimeType) || AudioFormat.AUDIO_WMA.equals(mimeType))
+              && audioFormat.getCbSize() > 0) {
         builder.setInitializationData(Collections.singletonList(audioFormat.getCodecData()));
       }
       trackOutput.format(builder.build());
