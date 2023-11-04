@@ -33,54 +33,24 @@ android {
         }
     }
     namespace 'com.homesoft.exo.avi'
-}
 
-def injectDependenciesInPom(pom) {
-    pom.withXml {
-        def dependenciesNode = asNode().appendNode('dependencies')
-
-        configurations.implementation.allDependencies.each { dependency ->
-            if (!dependency.version.equals("unspecified") &&
-                    !dependency.group.equals("unspecified") &&
-                    !dependency.name.equals("unspecified")) {
-                def dependencyNode = dependenciesNode.appendNode('dependency')
-                dependencyNode.appendNode('groupId', dependency.group)
-                dependencyNode.appendNode('artifactId', dependency.name)
-                dependencyNode.appendNode('version', dependency.version)
-            }
-        }
+    publishing {
+        singleVariant("release")
     }
 }
+
 //Install to local maven repo
-//gradlew media3avi:publishToMavenLocal
+//gradlew media3-avi:publishToMavenLocal
 
 publishing {
     publications {
-        libRaw(MavenPublication) {
-            groupId = "${rootProject.ext.groupId}"
-            artifactId = "${rootProject.ext.artifactId}"
+        media3avi(MavenPublication) {
+            setGroupId "${rootProject.ext.groupId}"
+            setArtifactId "${rootProject.ext.artifactId}"
             version "${rootProject.ext.artifactVersion}"
-            artifact("$buildDir/outputs/aar/${rootProject.ext.artifactId}-release.aar")
 
-            injectDependenciesInPom(pom)
-        }
-    }
-
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            /** Configure path of your package repository on Github
-             ** Replace GITHUB_USERID with your/organisation Github userID
-             ** and REPOSITORY with the repository name on GitHub
-             */
-            url = uri("https://maven.pkg.github.com/dburckh/Media3Avi")
-            credentials {
-                /** Create github.properties in root project folder file with
-                 ** gpr.usr=GITHUB_USER_ID & gpr.key=PERSONAL_ACCESS_TOKEN
-                 ** Set env variable GPR_USER & GPR_API_KEY if not adding a properties file**/
-
-                username = System.getenv("GPR_USER")
-                password = System.getenv("GPR_API_KEY")
+            afterEvaluate {
+                from components.release
             }
         }
     }
@@ -93,6 +63,9 @@ dependencies {
 
     // Common functionality used across multiple media libraries
     implementation "androidx.media3:media3-common:$media3_version"
+
+    // For extracting data from media containers
+    implementation "androidx.media3:media3-container:$media3_version"
 
     // For extracting data from media containers
     implementation "androidx.media3:media3-extractor:$media3_version"

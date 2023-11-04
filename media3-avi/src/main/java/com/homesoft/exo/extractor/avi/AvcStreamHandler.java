@@ -19,8 +19,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.extractor.ExtractorInput;
-import androidx.media3.extractor.NalUnitUtil;
-import androidx.media3.extractor.ParsableNalUnitBitArray;
+import androidx.media3.container.NalUnitUtil;
+import androidx.media3.container.ParsableNalUnitBitArray;
 import androidx.media3.extractor.TrackOutput;
 
 import java.io.IOException;
