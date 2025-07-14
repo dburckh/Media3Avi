@@ -3,8 +3,10 @@ package com.homesoft.exo.video;
 import android.graphics.Bitmap;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
 
+@UnstableApi
 public class BitmapDecoderOutputBuffer extends VideoDecoderOutputBuffer {
     @Nullable
     private Bitmap bitmap;

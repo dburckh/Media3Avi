@@ -27,6 +27,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
@@ -59,10 +60,11 @@ import androidx.media3.ui.PlayerView;
 
 import com.homesoft.exo.extractor.AviExtractorsFactory;
 
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** An activity that plays media using {@link ExoPlayer}. */
 public class PlayerActivity extends AppCompatActivity
@@ -96,9 +98,6 @@ public class PlayerActivity extends AppCompatActivity
 
   @Nullable private AdsLoader clientSideAdsLoader;
 
-  // TODO: Annotate this and serverSideAdsLoaderState below with @OptIn when it can be applied to
-  // fields (needs http://r.android.com/2004032 to be released into a version of
-  // androidx.annotation:annotation-experimental).
   @Nullable private ImaServerSideAdInsertionMediaSource.AdsLoader serverSideAdsLoader;
 
   private ImaServerSideAdInsertionMediaSource.AdsLoader.@MonotonicNonNull State
@@ -265,8 +264,8 @@ public class PlayerActivity extends AppCompatActivity
    * @return Whether initialization was successful.
    */
   protected boolean initializePlayer() {
+    Intent intent = getIntent();
     if (player == null) {
-      Intent intent = getIntent();
 
       mediaItems = createMediaItems(intent);
       if (mediaItems.isEmpty()) {
@@ -296,11 +295,15 @@ public class PlayerActivity extends AppCompatActivity
     }
     player.setMediaItems(mediaItems, /* resetPosition= */ !haveStartPosition);
     player.prepare();
+    String repeatModeExtra = intent.getStringExtra(IntentUtil.REPEAT_MODE_EXTRA);
+    if (repeatModeExtra != null) {
+      player.setRepeatMode(IntentUtil.parseRepeatModeExtra(repeatModeExtra));
+    }
     updateButtonVisibility();
     return true;
   }
 
-  @OptIn(markerClass = UnstableApi.class) // SSAI configuration
+  @OptIn(markerClass = UnstableApi.class) // DRM configuration
   private MediaSource.Factory createMediaSourceFactory() {
     DefaultDrmSessionManagerProvider drmSessionManagerProvider =
         new DefaultDrmSessionManagerProvider();
@@ -334,7 +337,6 @@ public class PlayerActivity extends AppCompatActivity
     playerBuilder.setRenderersFactory(renderersFactory);
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void configurePlayerWithServerSideAdsLoader() {
     serverSideAdsLoader.setPlayer(player);
   }
@@ -358,18 +360,14 @@ public class PlayerActivity extends AppCompatActivity
         finish();
         return Collections.emptyList();
       }
-      if (Util.maybeRequestReadExternalStoragePermission(/* activity= */ this, mediaItem)) {
+      if (Util.maybeRequestReadStoragePermission(/* activity= */ this, mediaItem)) {
         // The player will be reinitialized if the permission is granted.
         return Collections.emptyList();
       }
 
       MediaItem.DrmConfiguration drmConfiguration = mediaItem.localConfiguration.drmConfiguration;
       if (drmConfiguration != null) {
-        if (Build.VERSION.SDK_INT < 18) {
-          showToast(R.string.error_drm_unsupported_before_api_18);
-          finish();
-          return Collections.emptyList();
-        } else if (!FrameworkMediaDrm.isCryptoSchemeSupported(drmConfiguration.scheme)) {
+        if (!FrameworkMediaDrm.isCryptoSchemeSupported(drmConfiguration.scheme)) {
           showToast(R.string.error_drm_unsupported_scheme);
           finish();
           return Collections.emptyList();
@@ -407,7 +405,6 @@ public class PlayerActivity extends AppCompatActivity
     }
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void releaseServerSideAdsLoader() {
     serverSideAdsLoaderState = serverSideAdsLoader.release();
     serverSideAdsLoader = null;
@@ -421,20 +418,17 @@ public class PlayerActivity extends AppCompatActivity
     }
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void saveServerSideAdsLoaderState(Bundle outState) {
     if (serverSideAdsLoaderState != null) {
       outState.putBundle(KEY_SERVER_SIDE_ADS_LOADER_STATE, serverSideAdsLoaderState.toBundle());
     }
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   private void restoreServerSideAdsLoaderState(Bundle savedInstanceState) {
     Bundle adsLoaderStateBundle = savedInstanceState.getBundle(KEY_SERVER_SIDE_ADS_LOADER_STATE);
     if (adsLoaderStateBundle != null) {
       serverSideAdsLoaderState =
-          ImaServerSideAdInsertionMediaSource.AdsLoader.State.CREATOR.fromBundle(
-              adsLoaderStateBundle);
+          ImaServerSideAdInsertionMediaSource.AdsLoader.State.fromBundle(adsLoaderStateBundle);
     }
   }
 
@@ -518,6 +512,7 @@ public class PlayerActivity extends AppCompatActivity
 
   private class PlayerErrorMessageProvider implements ErrorMessageProvider<PlaybackException> {
 
+    @OptIn(markerClass = UnstableApi.class) // Using decoder exceptions
     @Override
     public Pair<Integer, String> getErrorMessage(PlaybackException e) {
       String errorString = getString(R.string.error_generic);
@@ -558,7 +553,7 @@ public class PlayerActivity extends AppCompatActivity
     return mediaItems;
   }
 
-  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+  @OptIn(markerClass = UnstableApi.class) // Using Download API
   private static MediaItem maybeSetDownloadProperties(
       MediaItem item, @Nullable DownloadRequest downloadRequest) {
     if (downloadRequest == null) {

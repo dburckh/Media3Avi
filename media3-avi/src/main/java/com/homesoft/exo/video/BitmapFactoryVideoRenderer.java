@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -19,6 +20,7 @@ import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.video.DecoderVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 
+@UnstableApi
 public class BitmapFactoryVideoRenderer extends DecoderVideoRenderer {
     static final String TAG = "BitmapFactoryRenderer2";
     private final Rect rect = new Rect();

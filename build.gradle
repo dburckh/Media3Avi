@@ -1,7 +1,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
-    id 'com.android.application' version '8.1.1' apply false
-    id 'com.android.library' version '8.1.1' apply false
+    id 'com.android.application' version '8.3.2' apply false
+    id 'com.android.library' version '8.3.2' apply false
 }
 
 task clean(type: Delete) {
@@ -10,7 +10,7 @@ task clean(type: Delete) {
 ext {
     groupId = 'com.github.dburckh'
     artifactId = 'Media3Avi'
-    artifactVersion = '2.3.0'
+    artifactVersion = '2.7.1'
 
-    media3_version = "1.1.1"
+    media3_version = "1.7.1"
 }

@@ -2,6 +2,7 @@ package com.homesoft.exo.extractor;
 
 import android.net.Uri;
 
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorsFactory;
@@ -14,6 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+@UnstableApi
 public class AviExtractorsFactory implements ExtractorsFactory {
     private final DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
 

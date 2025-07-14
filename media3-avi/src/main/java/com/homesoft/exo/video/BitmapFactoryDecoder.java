@@ -5,7 +5,9 @@ import android.graphics.BitmapFactory;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.media3.common.C;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderException;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -13,7 +15,7 @@ import androidx.media3.decoder.SimpleDecoder;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
-
+@OptIn(markerClass = UnstableApi.class)
 public class BitmapFactoryDecoder extends SimpleDecoder<DecoderInputBuffer, BitmapDecoderOutputBuffer, DecoderException> {
     private static final String TAG = "BitmapFactoryDecoder";
     private final ArrayBlockingQueue<Bitmap> bitmapQueue;
@@ -68,10 +70,10 @@ public class BitmapFactoryDecoder extends SimpleDecoder<DecoderInputBuffer, Bitm
         opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
         opts.inMutable = true;
         opts.inBitmap = bitmapQueue.poll();
-        opts.inJustDecodeBounds = inputBuffer.isDecodeOnly() || outputMode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV;
+        opts.inJustDecodeBounds = outputBuffer.shouldBeSkipped || outputMode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV;
         final Bitmap bitmap = BitmapFactory.decodeByteArray(inputData.array(), inputData.arrayOffset(), inputData.limit(), opts);
         if (bitmap == null || opts.inJustDecodeBounds) {
-            outputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
+            outputBuffer.shouldBeSkipped = true;
         } else {
             outputBuffer.setBitmap(bitmap);
             outputBuffer.format = inputBuffer.format;

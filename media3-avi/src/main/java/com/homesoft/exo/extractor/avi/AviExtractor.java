@@ -23,6 +23,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -44,6 +45,7 @@ import java.util.List;
  * Extractor based on the official MicroSoft spec
  * https://docs.microsoft.com/en-us/windows/win32/directshow/avi-riff-file-reference
  */
+@UnstableApi
 public class AviExtractor implements Extractor {
   //Minimum time between keyframes in the AviSeekMap
   static final long MIN_KEY_FRAME_RATE_US = 2_000_000L;

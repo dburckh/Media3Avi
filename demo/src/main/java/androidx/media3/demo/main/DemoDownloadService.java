@@ -44,8 +44,7 @@ public class DemoDownloadService extends DownloadService {
         FOREGROUND_NOTIFICATION_ID,
         DEFAULT_FOREGROUND_NOTIFICATION_UPDATE_INTERVAL,
         DOWNLOAD_NOTIFICATION_CHANNEL_ID,
-        //R.string.exo_download_notification_channel_name,
-        androidx.media3.exoplayer.R.string.exo_download_notification_channel_name,
+            androidx.media3.exoplayer.R.string.exo_download_notification_channel_name,
         /* channelDescriptionResourceId= */ 0);
   }
 
@@ -64,7 +63,7 @@ public class DemoDownloadService extends DownloadService {
 
   @Override
   protected Scheduler getScheduler() {
-    return Util.SDK_INT >= 21 ? new PlatformScheduler(this, JOB_ID) : null;
+    return new PlatformScheduler(this, JOB_ID);
   }
 
   @Override

@@ -15,7 +15,7 @@ track 0:
     maxInputSize = 6761
     width = 960
     height = 400
-    frameRate = 23.976025
+    frameRate = 23.98
   sample 0:
     time = 0
     flags = 1

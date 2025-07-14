@@ -3,6 +3,7 @@ package com.homesoft.exo;
 import android.content.Context;
 import android.os.Handler;
 
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
@@ -12,6 +13,7 @@ import com.homesoft.exo.video.BitmapFactoryVideoRenderer;
 
 import java.util.ArrayList;
 
+@UnstableApi
 public class MjpegRenderersFactory extends DefaultRenderersFactory {
     public MjpegRenderersFactory(Context context) {
         super(context);

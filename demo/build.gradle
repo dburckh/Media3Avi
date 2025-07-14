@@ -27,7 +27,6 @@ android {
         versionCode project.ext.releaseVersionCode
         minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
-        multiDexEnabled true
     }
     buildTypes {
         release {
@@ -70,7 +69,8 @@ dependencies {
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
-    implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
+    // Not sure why this is required???
+    implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
 
 
@@ -131,7 +131,7 @@ dependencies {
     implementation "androidx.media3:media3-common:$media3_version"
 
     // Work-around for duplicate kotlin dependencies
-    implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.0"))
+    implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.22"))
 }
 
 //apply plugin: 'com.google.android.gms.strict-version-matcher-plugin'

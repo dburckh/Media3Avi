@@ -16,47 +16,44 @@
 package androidx.media3.demo.main;
 
 import android.content.Context;
+import android.net.http.HttpEngine;
+import android.os.Build;
+import android.os.ext.SdkExtensions;
+
 import androidx.annotation.OptIn;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.StandaloneDatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.HttpEngineDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.datasource.cache.NoOpCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.datasource.cronet.CronetDataSource;
 import androidx.media3.datasource.cronet.CronetUtil;
-import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.offline.DownloadManager;
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper;
 
 import com.homesoft.exo.MjpegRenderersFactory;
 
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.chromium.net.CronetEngine;
+
 import java.io.File;
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.util.concurrent.Executors;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
-import org.chromium.net.CronetEngine;
 
 /** Utility methods for the demo app. */
+@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
 public final class DemoUtil {
 
   public static final String DOWNLOAD_NOTIFICATION_CHANNEL_ID = "download_channel";
-
-  /**
-   * Whether the demo application uses Cronet for networking. Note that Cronet does not provide
-   * automatic support for cookies (https://github.com/google/ExoPlayer/issues/5975).
-   *
-   * <p>If set to false, the platform's default network stack is used with a {@link CookieManager}
-   * configured in {@link #getHttpDataSourceFactory}.
-   */
-  private static final boolean USE_CRONET_FOR_NETWORKING = true;
 
   private static final String TAG = "DemoUtil";
   private static final String DOWNLOAD_CONTENT_DIRECTORY = "downloads";
@@ -78,38 +75,43 @@ public final class DemoUtil {
   @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   public static RenderersFactory buildRenderersFactory(
       Context context, boolean preferExtensionRenderer) {
-    @DefaultRenderersFactory.ExtensionRendererMode
-    int extensionRendererMode =
-        useExtensionRenderers()
-            ? (preferExtensionRenderer
-                ? DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
-                : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-            : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF;
-    //AVI Change
+    // AVI Change
+//    @DefaultRenderersFactory.ExtensionRendererMode
+//    int extensionRendererMode =
+//        useExtensionRenderers()
+//            ? (preferExtensionRenderer
+//                ? DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+//                : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+//            : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF;
 //    return new DefaultRenderersFactory(context.getApplicationContext())
 //        .setExtensionRendererMode(extensionRendererMode);
-    return new MjpegRenderersFactory(context.getApplicationContext())
-        .setExtensionRendererMode(extensionRendererMode);
+    return new MjpegRenderersFactory(context.getApplicationContext());
   }
 
+  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   public static synchronized DataSource.Factory getHttpDataSourceFactory(Context context) {
-    if (httpDataSourceFactory == null) {
-      if (USE_CRONET_FOR_NETWORKING) {
-        context = context.getApplicationContext();
-        @Nullable CronetEngine cronetEngine = CronetUtil.buildCronetEngine(context);
-        if (cronetEngine != null) {
-          httpDataSourceFactory =
-              new CronetDataSource.Factory(cronetEngine, Executors.newSingleThreadExecutor());
-        }
-      }
-      if (httpDataSourceFactory == null) {
-        // We don't want to use Cronet, or we failed to instantiate a CronetEngine.
-        CookieManager cookieManager = new CookieManager();
-        cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ORIGINAL_SERVER);
-        CookieHandler.setDefault(cookieManager);
-        httpDataSourceFactory = new DefaultHttpDataSource.Factory();
-      }
+    if (httpDataSourceFactory != null) {
+      return httpDataSourceFactory;
     }
+    context = context.getApplicationContext();
+    if (Build.VERSION.SDK_INT >= 30
+        && SdkExtensions.getExtensionVersion(Build.VERSION_CODES.S) >= 7) {
+      HttpEngine httpEngine = new HttpEngine.Builder(context).build();
+      httpDataSourceFactory =
+          new HttpEngineDataSource.Factory(httpEngine, Executors.newSingleThreadExecutor());
+      return httpDataSourceFactory;
+    }
+    @Nullable CronetEngine cronetEngine = CronetUtil.buildCronetEngine(context);
+    if (cronetEngine != null) {
+      httpDataSourceFactory =
+          new CronetDataSource.Factory(cronetEngine, Executors.newSingleThreadExecutor());
+      return httpDataSourceFactory;
+    }
+    // The device doesn't support HttpEngine and we failed to instantiate a CronetEngine.
+    CookieManager cookieManager = new CookieManager();
+    cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ORIGINAL_SERVER);
+    CookieHandler.setDefault(cookieManager);
+    httpDataSourceFactory = new DefaultHttpDataSource.Factory();
     return httpDataSourceFactory;
   }
 

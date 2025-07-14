@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import android.Manifest;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -26,10 +27,13 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.net.Uri;
-import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.JsonReader;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -42,15 +46,18 @@ import android.widget.ExpandableListView.OnChildClickListener;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.MediaMetadata;
-import androidx.media3.common.util.Log;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceInputStream;
@@ -58,19 +65,24 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.offline.DownloadService;
-import com.google.common.base.Objects;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** An activity for selecting from a list of media samples. */
 public class SampleChooserActivity extends AppCompatActivity
@@ -87,13 +99,15 @@ public class SampleChooserActivity extends AppCompatActivity
   private SampleAdapter sampleAdapter;
   private MenuItem preferExtensionDecodersMenuItem;
   private ExpandableListView sampleListView;
+  @Nullable private MediaItem downloadMediaItemWaitingForNotificationPermission;
+  private boolean notificationPermissionToastShown;
   private final ActivityResultLauncher<String[]> openDocumentLauncher = registerForActivityResult(
-      new ActivityResultContracts.OpenDocument(), uri -> {
-        if (uri != null) {
-          final MediaItem mediaItem = new MediaItem.Builder().setUri(uri).build();
-          startPlayer(Collections.singletonList(mediaItem));
-        }
-      });
+          new ActivityResultContracts.OpenDocument(), uri -> {
+            if (uri != null) {
+              final MediaItem mediaItem = new MediaItem.Builder().setUri(uri).build();
+              startPlayer(Collections.singletonList(mediaItem));
+            }
+          });
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -119,6 +133,7 @@ public class SampleChooserActivity extends AppCompatActivity
           }
         }
       } catch (IOException e) {
+        Log.e(TAG, "One or more sample lists failed to load", e);
         Toast.makeText(getApplicationContext(), R.string.sample_list_load_error, Toast.LENGTH_LONG)
             .show();
       }
@@ -134,7 +149,7 @@ public class SampleChooserActivity extends AppCompatActivity
   }
 
   /** Start the download service if it should be running but it's not currently. */
-  @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+  @OptIn(markerClass = UnstableApi.class)
   private void startDownloadService() {
     // Starting the service in the foreground causes notification flicker if there is no scheduled
     // action. Starting it in the background throws an exception if the app is in the background too
@@ -183,30 +198,22 @@ public class SampleChooserActivity extends AppCompatActivity
   public void onRequestPermissionsResult(
       int requestCode, String[] permissions, int[] grantResults) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    if (grantResults.length == 0) {
-      // Empty results are triggered if a permission is requested while another request was already
-      // pending and can be safely ignored in this case.
-      return;
-    }
-    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-      loadSample();
-    } else {
-      Toast.makeText(getApplicationContext(), R.string.sample_list_load_error, Toast.LENGTH_LONG)
+    if (!notificationPermissionToastShown
+        && (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED)) {
+      Toast.makeText(
+              getApplicationContext(), R.string.post_notification_not_granted, Toast.LENGTH_LONG)
           .show();
-      finish();
+      notificationPermissionToastShown = true;
+    }
+    if (downloadMediaItemWaitingForNotificationPermission != null) {
+      // Download with or without permission to post notifications.
+      toggleDownload(downloadMediaItemWaitingForNotificationPermission);
+      downloadMediaItemWaitingForNotificationPermission = null;
     }
   }
 
   private void loadSample() {
     checkNotNull(uris);
-
-    for (int i = 0; i < uris.length; i++) {
-      Uri uri = Uri.parse(uris[i]);
-      if (Util.maybeRequestReadExternalStoragePermission(this, uri)) {
-        return;
-      }
-    }
-
     SampleListLoader loaderTask = new SampleListLoader();
     loaderTask.execute(uris);
   }
@@ -256,8 +263,8 @@ public class SampleChooserActivity extends AppCompatActivity
   private void startPlayer(final List<MediaItem> mediaItems) {
     Intent intent = new Intent(this, PlayerActivity.class);
     intent.putExtra(
-        IntentUtil.PREFER_EXTENSION_DECODERS_EXTRA,
-        isNonNullAndChecked(preferExtensionDecodersMenuItem));
+          IntentUtil.PREFER_EXTENSION_DECODERS_EXTRA,
+          isNonNullAndChecked(preferExtensionDecodersMenuItem));
     IntentUtil.addToIntent(mediaItems, intent);
     startActivity(intent);
   }
@@ -267,13 +274,24 @@ public class SampleChooserActivity extends AppCompatActivity
     if (downloadUnsupportedStringId != 0) {
       Toast.makeText(getApplicationContext(), downloadUnsupportedStringId, Toast.LENGTH_LONG)
           .show();
+    } else if (!notificationPermissionToastShown
+        && Build.VERSION.SDK_INT >= 33
+        && checkSelfPermission(Api33.getPostNotificationPermissionString())
+            != PackageManager.PERMISSION_GRANTED) {
+      downloadMediaItemWaitingForNotificationPermission = playlistHolder.mediaItems.get(0);
+      requestPermissions(
+          new String[] {Api33.getPostNotificationPermissionString()}, /* requestCode= */ 0);
     } else {
-      RenderersFactory renderersFactory =
-          DemoUtil.buildRenderersFactory(
-              /* context= */ this, isNonNullAndChecked(preferExtensionDecodersMenuItem));
-      downloadTracker.toggleDownload(
-          getSupportFragmentManager(), playlistHolder.mediaItems.get(0), renderersFactory);
+      toggleDownload(playlistHolder.mediaItems.get(0));
     }
+  }
+
+  @OptIn(markerClass = UnstableApi.class)
+  private void toggleDownload(MediaItem mediaItem) {
+    RenderersFactory renderersFactory =
+        DemoUtil.buildRenderersFactory(
+            /* context= */ this, isNonNullAndChecked(preferExtensionDecodersMenuItem));
+    downloadTracker.toggleDownload(getSupportFragmentManager(), mediaItem, renderersFactory);
   }
 
   private int getDownloadUnsupportedStringId(PlaylistHolder playlistHolder) {
@@ -284,6 +302,10 @@ public class SampleChooserActivity extends AppCompatActivity
         checkNotNull(playlistHolder.mediaItems.get(0).localConfiguration);
     if (localConfiguration.adsConfiguration != null) {
       return R.string.download_ads_unsupported;
+    }
+    @Nullable MediaItem.DrmConfiguration drmConfiguration = localConfiguration.drmConfiguration;
+    if (drmConfiguration != null && !drmConfiguration.scheme.equals(C.WIDEVINE_UUID)) {
+      return R.string.download_only_widevine_drm_supported;
     }
     String scheme = localConfiguration.uri.getScheme();
     if (!("http".equals(scheme) || "https".equals(scheme))) {
@@ -297,34 +319,43 @@ public class SampleChooserActivity extends AppCompatActivity
     return menuItem != null && menuItem.isChecked();
   }
 
-  private final class SampleListLoader extends AsyncTask<String, Void, List<PlaylistGroup>> {
+  private final class SampleListLoader {
+
+    private final ExecutorService executorService;
 
     private boolean sawError;
 
-    @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
-    @Override
-    protected List<PlaylistGroup> doInBackground(String... uris) {
-      List<PlaylistGroup> result = new ArrayList<>();
-      Context context = getApplicationContext();
-      DataSource dataSource = DemoUtil.getDataSourceFactory(context).createDataSource();
-      for (String uri : uris) {
-        DataSpec dataSpec = new DataSpec(Uri.parse(uri));
-        InputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
-        try {
-          readPlaylistGroups(new JsonReader(new InputStreamReader(inputStream, "UTF-8")), result);
-        } catch (Exception e) {
-          Log.e(TAG, "Error loading sample list: " + uri, e);
-          sawError = true;
-        } finally {
-          DataSourceUtil.closeQuietly(dataSource);
-        }
-      }
-      return result;
+    public SampleListLoader() {
+      executorService = Executors.newSingleThreadExecutor();
     }
 
-    @Override
-    protected void onPostExecute(List<PlaylistGroup> result) {
-      onPlaylistGroups(result, sawError);
+    @OptIn(markerClass = UnstableApi.class)
+    public void execute(String... uris) {
+      executorService.execute(
+          () -> {
+            List<PlaylistGroup> result = new ArrayList<>();
+            Context context = getApplicationContext();
+            DataSource dataSource = DemoUtil.getDataSourceFactory(context).createDataSource();
+            for (String uri : uris) {
+              DataSpec dataSpec = new DataSpec(Uri.parse(uri));
+              InputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
+              try {
+                readPlaylistGroups(
+                    new JsonReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)),
+                    result);
+              } catch (Exception e) {
+                Log.e(TAG, "Error loading sample list: " + uri, e);
+                sawError = true;
+              } finally {
+                DataSourceUtil.closeQuietly(dataSource);
+              }
+            }
+            new Handler(Looper.getMainLooper())
+                .post(
+                    () -> {
+                      onPlaylistGroups(result, sawError);
+                    });
+          });
     }
 
     private void readPlaylistGroups(JsonReader reader, List<PlaylistGroup> groups)
@@ -368,6 +399,7 @@ public class SampleChooserActivity extends AppCompatActivity
       group.playlists.addAll(playlistHolders);
     }
 
+    @OptIn(markerClass = UnstableApi.class) // Setting image duration.
     private PlaylistHolder readEntry(JsonReader reader, boolean insidePlaylist) throws IOException {
       Uri uri = null;
       String extension = null;
@@ -382,7 +414,7 @@ public class SampleChooserActivity extends AppCompatActivity
       boolean drmSessionForClearContent = false;
       boolean drmMultiSession = false;
       boolean drmForceDefaultLicenseUri = false;
-      MediaItem.ClippingConfiguration.Builder clippingConfiguration =
+      ClippingConfiguration.Builder clippingConfiguration =
           new ClippingConfiguration.Builder();
 
       MediaItem.Builder mediaItem = new MediaItem.Builder();
@@ -404,6 +436,9 @@ public class SampleChooserActivity extends AppCompatActivity
             break;
           case "clip_end_position_ms":
             clippingConfiguration.setEndPositionMs(reader.nextLong());
+            break;
+          case "image_duration_ms":
+            mediaItem.setImageDurationMs(reader.nextLong());
             break;
           case "ad_tag_uri":
             mediaItem.setAdsConfiguration(
@@ -515,7 +550,7 @@ public class SampleChooserActivity extends AppCompatActivity
 
     private PlaylistGroup getGroup(String groupName, List<PlaylistGroup> groups) {
       for (int i = 0; i < groups.size(); i++) {
-        if (Objects.equal(groupName, groups.get(i).title)) {
+        if (Objects.equals(groupName, groups.get(i).title)) {
           return groups.get(i);
         }
       }
@@ -651,6 +686,14 @@ public class SampleChooserActivity extends AppCompatActivity
     public PlaylistGroup(String title) {
       this.title = title;
       this.playlists = new ArrayList<>();
+    }
+  }
+
+  @RequiresApi(33)
+  private static class Api33 {
+
+    public static String getPostNotificationPermissionString() {
+      return Manifest.permission.POST_NOTIFICATIONS;
     }
   }
 }
