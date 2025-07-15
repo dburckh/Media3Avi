@@ -30,8 +30,8 @@ android {
     }
     buildTypes {
         release {
-            shrinkResources true
             // R8 was failing when minifying in JitPack.IO
+            shrinkResources false
             minifyEnabled false
             proguardFiles = [
                 "proguard-rules.txt",
