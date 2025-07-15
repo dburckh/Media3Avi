@@ -8,7 +8,7 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 ext {
-    groupId = 'com.github.dburckh'
+    groupId = 'com.homesoft.android'
     artifactId = 'Media3Avi'
     artifactVersion = '2.7.1'
 
