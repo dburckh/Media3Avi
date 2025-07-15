@@ -53,6 +53,9 @@ dependencyResolutionManagement {
 Upgraders should remove the references to 'maven.pkg.github.com/dburckh' in your root build.gradle.  You will no longer require GPR_USER/GPR_API_KEY environment variables either.
 
 ### Change Log
+2.7.1
+- Update to AndroidX Media3 1.7.1
+
 2.3.0
 - Update to AndroidX Media 1.1.1
 - Support jitpack.io
